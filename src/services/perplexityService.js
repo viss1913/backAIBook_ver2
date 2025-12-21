@@ -619,7 +619,7 @@ function createGenApiClient(apiKey) {
  * Обрабатывает callback от Gen-API
  * @param {Object} callbackData - Данные из callback
  */
-export function handleGenApiCallback(callbackData) {
+export async function handleGenApiCallback(callbackData) {
   console.log('=== handleGenApiCallback ===');
   console.log('Callback data:', JSON.stringify(callbackData, null, 2));
   
