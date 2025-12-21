@@ -622,18 +622,51 @@ function createGenApiClient(apiKey) {
 export async function handleGenApiCallback(callbackData) {
   console.log('=== handleGenApiCallback ===');
   console.log('Callback data:', JSON.stringify(callbackData, null, 2));
+  console.log('Current pending requests:', Array.from(genApiRequests.keys()));
   
   const requestId = callbackData.request_id;
   if (!requestId) {
     console.error('No request_id in callback');
+    console.error('Available keys in callbackData:', Object.keys(callbackData));
     return;
   }
 
-  const request = genApiRequests.get(requestId);
+  console.log(`Looking for request_id: ${requestId} (type: ${typeof requestId})`);
+
+  // Пробуем найти по разным типам ID (число/строка)
+  let request = genApiRequests.get(requestId);
+  
   if (!request) {
-    console.warn(`No pending request found for request_id: ${requestId}`);
+    // Пробуем числовой вариант
+    const numericId = typeof requestId === 'string' ? parseInt(requestId, 10) : Number(requestId);
+    if (!isNaN(numericId)) {
+      request = genApiRequests.get(numericId);
+      if (request) {
+        console.log(`Found request by numeric ID: ${numericId}`);
+        // Обновляем ключ на правильный тип
+        genApiRequests.delete(numericId);
+        genApiRequests.set(requestId, request);
+      }
+    }
+  }
+  
+  if (!request) {
+    // Пробуем строковый вариант
+    const stringId = String(requestId);
+    request = genApiRequests.get(stringId);
+    if (request) {
+      console.log(`Found request by string ID: ${stringId}`);
+    }
+  }
+  
+  if (!request) {
+    console.warn(`No pending request found for request_id: ${requestId} (type: ${typeof requestId})`);
+    console.warn(`Available request IDs:`, Array.from(genApiRequests.keys()));
+    console.warn(`Trying to find by numeric: ${typeof requestId === 'string' ? parseInt(requestId, 10) : Number(requestId)}`);
     return;
   }
+
+  console.log(`Found pending request for ID: ${requestId}`);
 
   if (callbackData.status === 'success' && callbackData.output) {
     // Извлекаем изображение из output
@@ -766,8 +799,9 @@ async function generateImageWithGenApi(apiKey, prompt, callbackUrl, options = {}
       throw new Error('No request_id in Gen-API response');
     }
 
-    console.log('Request ID:', requestId);
+    console.log('Request ID:', requestId, '(type:', typeof requestId, ')');
     console.log('Status:', status);
+    console.log('Full response:', JSON.stringify(response.data, null, 2));
 
     // Создаем Promise для ожидания callback
     return new Promise((resolve, reject) => {
