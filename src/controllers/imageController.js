@@ -51,6 +51,8 @@ export async function generateImage(req, res) {
 
   } catch (error) {
     console.error('Error generating image:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error message:', error.message);
 
     // Обработка различных типов ошибок
     if (error.message.includes('Rate limit')) {
@@ -67,10 +69,11 @@ export async function generateImage(req, res) {
       });
     }
 
-    // Общая ошибка сервера
+    // Общая ошибка сервера с деталями для дебага
     return res.status(500).json({
       success: false,
-      error: 'Failed to generate image. Please try again later.'
+      error: error.message || 'Failed to generate image. Please try again later.',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
