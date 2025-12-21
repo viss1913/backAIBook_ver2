@@ -17,18 +17,30 @@ export async function generateImage(req, res) {
     }
 
     const { bookTitle, author, textChunk } = validation.value;
-    const apiKey = process.env.PERPLEXITY_API_KEY;
+    const perplexityApiKey = process.env.PERPLEXITY_API_KEY;
+    const laoZhangApiKey = process.env.LAOZHANG_API_KEY;
 
-    if (!apiKey) {
+    if (!perplexityApiKey) {
       console.error('PERPLEXITY_API_KEY is not set');
       return res.status(500).json({
         success: false,
-        error: 'Server configuration error'
+        error: 'Server configuration error: PERPLEXITY_API_KEY is missing'
       });
     }
 
+    if (!laoZhangApiKey) {
+      console.error('LAOZHANG_API_KEY is not set');
+      return res.status(500).json({
+        success: false,
+        error: 'Server configuration error: LAOZHANG_API_KEY is missing'
+      });
+    }
+
+    // Получаем модель из query параметра или используем по умолчанию
+    const imageModel = req.query.model || 'flux-kontext-pro';
+
     // Генерация изображения
-    const result = await generateImageFromText(apiKey, bookTitle, author, textChunk);
+    const result = await generateImageFromText(perplexityApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel);
 
     return res.status(200).json({
       success: true,
