@@ -28,11 +28,16 @@ function createPerplexityClient(apiKey) {
  * @returns {Promise<string>} Сгенерированный промпт
  */
 async function generatePromptForImage(apiKey, bookTitle, author, textChunk) {
+  console.log('=== generatePromptForImage ===');
+  console.log('API Key exists:', !!apiKey);
+  console.log('API Key starts with:', apiKey ? apiKey.substring(0, 10) + '...' : 'N/A');
+  
   const client = createPerplexityClient(apiKey);
   const systemPrompt = 'Создай промпт для image generation. Ты эксперт по созданию детальных, художественных промптов для генерации изображений.';
   const userPrompt = generateImagePrompt(bookTitle, author, textChunk);
 
   try {
+    console.log('Sending request to Perplexity API...');
     const response = await client.post('', {
       model: 'llama-3.1-sonar-huge-128k-online',
       messages: [
@@ -49,18 +54,27 @@ async function generatePromptForImage(apiKey, bookTitle, author, textChunk) {
       max_tokens: 500
     });
 
+    console.log('Perplexity API response received');
     const generatedPrompt = response.data?.choices?.[0]?.message?.content?.trim();
     if (!generatedPrompt) {
+      console.error('No prompt in response:', JSON.stringify(response.data));
       throw new Error('Failed to generate prompt from Perplexity API');
     }
 
+    console.log('Prompt generated successfully');
     return generatedPrompt;
   } catch (error) {
+    console.error('Perplexity API error:', error.message);
+    console.error('Error status:', error.response?.status);
+    console.error('Error data:', error.response?.data);
+    
     if (error.response?.status === 429) {
       throw new Error('Rate limit exceeded. Please try again later.');
     }
     if (error.response?.status === 401) {
-      throw new Error('Invalid API key');
+      console.error('Perplexity API returned 401 - Invalid API key');
+      console.error('API Key provided:', apiKey ? apiKey.substring(0, 10) + '...' : 'N/A');
+      throw new Error('Invalid Perplexity API key. Please check your PERPLEXITY_API_KEY environment variable.');
     }
     throw new Error(`Perplexity API error: ${error.message}`);
   }
