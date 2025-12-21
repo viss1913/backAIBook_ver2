@@ -22,63 +22,54 @@ function createOpenRouterClient(apiKey) {
 }
 
 /**
- * Генерирует промпт для изображения через Perplexity API
- * @param {string} apiKey - API ключ Perplexity
+ * Генерирует промпт для изображения через OpenRouter API (Gemini модель)
+ * @param {string} apiKey - API ключ OpenRouter
  * @param {string} bookTitle - Название книги
  * @param {string} author - Автор
  * @param {string} textChunk - Фрагмент текста
  * @returns {Promise<string>} Сгенерированный промпт
  */
 async function generatePromptForImage(apiKey, bookTitle, author, textChunk) {
-  console.log('=== generatePromptForImage (Gemini) ===');
+  console.log('=== generatePromptForImage (OpenRouter/Gemini) ===');
   console.log('API Key exists:', !!apiKey);
   console.log('API Key starts with:', apiKey ? apiKey.substring(0, 10) + '...' : 'N/A');
   
-  const client = createGeminiClient(apiKey);
+  const client = createOpenRouterClient(apiKey);
   const userPrompt = generateImagePrompt(bookTitle, author, textChunk);
-  
-  // Gemini использует другой формат - system instruction в отдельном поле
-  const systemInstruction = 'Создай промпт для image generation. Ты эксперт по созданию детальных, художественных промптов для генерации изображений.';
+  const systemPrompt = 'Создай промпт для image generation. Ты эксперт по созданию детальных, художественных промптов для генерации изображений.';
 
   try {
-    console.log('Sending request to Gemini API...');
-    // Gemini API использует ключ в URL параметре
-    // Пробуем разные модели, начиная с gemini-2.0-flash-exp
-    const modelName = 'gemini-2.0-flash-exp';
-    const requestBody = {
-      contents: [{
-        parts: [{
-          text: userPrompt
-        }]
-      }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 500
-      }
-    };
-    
-    // Добавляем systemInstruction, если поддерживается моделью
-    if (systemInstruction) {
-      requestBody.systemInstruction = {
-        parts: [{
-          text: systemInstruction
-        }]
-      };
-    }
-    
-    const response = await client.post(`/${modelName}:generateContent?key=${apiKey}`, requestBody);
+    console.log('Sending request to OpenRouter API...');
+    // OpenRouter использует OpenAI-совместимый формат
+    // Модель: google/gemini-2.0-flash-exp или google/gemini-2.0-flash-exp:free
+    const modelName = 'google/gemini-2.0-flash-exp';
+    const response = await client.post('', {
+      model: modelName,
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt
+        },
+        {
+          role: 'user',
+          content: userPrompt
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 500
+    });
 
-    console.log('Gemini API response received');
-    const generatedPrompt = response.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    console.log('OpenRouter API response received');
+    const generatedPrompt = response.data?.choices?.[0]?.message?.content?.trim();
     if (!generatedPrompt) {
       console.error('No prompt in response:', JSON.stringify(response.data));
-      throw new Error('Failed to generate prompt from Gemini API');
+      throw new Error('Failed to generate prompt from OpenRouter API');
     }
 
     console.log('Prompt generated successfully');
     return generatedPrompt;
   } catch (error) {
-    console.error('Gemini API error:', error.message);
+    console.error('OpenRouter API error:', error.message);
     console.error('Error status:', error.response?.status);
     console.error('Error data:', error.response?.data);
     
@@ -86,11 +77,11 @@ async function generatePromptForImage(apiKey, bookTitle, author, textChunk) {
       throw new Error('Rate limit exceeded. Please try again later.');
     }
     if (error.response?.status === 401 || error.response?.status === 403) {
-      console.error('Gemini API returned 401/403 - Invalid API key');
+      console.error('OpenRouter API returned 401/403 - Invalid API key');
       console.error('API Key provided:', apiKey ? apiKey.substring(0, 10) + '...' : 'N/A');
-      throw new Error('Invalid Gemini API key. Please check your GEMINI_API_KEY environment variable.');
+      throw new Error('Invalid OpenRouter API key. Please check your GEMINI_API_KEY (OpenRouter key) environment variable.');
     }
-    throw new Error(`Gemini API error: ${error.message}`);
+    throw new Error(`OpenRouter API error: ${error.message}`);
   }
 }
 
