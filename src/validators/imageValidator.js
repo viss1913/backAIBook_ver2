@@ -35,6 +35,22 @@ const generateImageSchema = Joi.object({
     .messages({
       'any.required': 'textChunk is required',
       'string.empty': 'textChunk cannot be empty'
+    }),
+  
+  prevSceneDescription: Joi.string()
+    .max(500)
+    .allow(null, '')
+    .optional()
+    .messages({
+      'string.max': 'prevSceneDescription must not exceed 500 characters'
+    }),
+  
+  audience: Joi.string()
+    .valid('adults', 'children', 'teens')
+    .default('adults')
+    .optional()
+    .messages({
+      'any.only': 'audience must be one of: adults, children, teens'
     })
 });
 

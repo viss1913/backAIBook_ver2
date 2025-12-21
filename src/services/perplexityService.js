@@ -45,14 +45,17 @@ function createOpenRouterClient(apiKey) {
  * @param {string} textChunk - Фрагмент текста
  * @returns {Promise<string>} Сгенерированный промпт
  */
-async function generatePromptForImage(apiKey, bookTitle, author, textChunk) {
+async function generatePromptForImage(apiKey, bookTitle, author, textChunk, prevSceneDescription = null, audience = 'adults') {
   console.log('=== generatePromptForImage (OpenRouter/Gemini) ===');
   console.log('API Key exists:', !!apiKey);
   console.log('API Key starts with:', apiKey ? apiKey.substring(0, 10) + '...' : 'N/A');
+  console.log('Book:', bookTitle, 'by', author);
+  console.log('Audience:', audience);
+  console.log('Previous scene provided:', !!prevSceneDescription);
   
   const client = createOpenRouterClient(apiKey);
-  const userPrompt = generateImagePrompt(bookTitle, author, textChunk);
-  const systemPrompt = 'Создай промпт для image generation. Ты эксперт по созданию детальных, художественных промптов для генерации изображений.';
+  const userPrompt = generateImagePrompt(bookTitle, author, textChunk, prevSceneDescription, audience);
+  const systemPrompt = 'You are an expert at creating detailed, artistic prompts for AI image generators. Your task is to analyze book text and create professional image generation prompts in English.';
 
   try {
     console.log('Sending request to OpenRouter API...');
@@ -72,7 +75,7 @@ async function generatePromptForImage(apiKey, bookTitle, author, textChunk) {
         }
       ],
       temperature: 0.7,
-      max_tokens: 500
+      max_tokens: 800  // Увеличено для более детальных промптов (100-200 слов)
     });
 
     console.log('OpenRouter API response received');
@@ -360,10 +363,10 @@ async function generateImageWithGetImg(apiKey, prompt, model = 'seedream-v4', op
   }
 }
 
-export async function generateImageFromText(openRouterApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel = 'flux-kontext-pro') {
+export async function generateImageFromText(openRouterApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel = 'flux-kontext-pro', prevSceneDescription = null, audience = 'adults') {
   try {
     // Шаг 1: Генерируем промпт для изображения через OpenRouter (Gemini модель)
-    const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk);
+    const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
     
     // Шаг 2: Генерируем изображение через LaoZhang API, добавляя контекст про человека, читающего книгу
     const imageUrl = await generateImage(laoZhangApiKey, imagePrompt, bookTitle, author, imageModel);
@@ -388,10 +391,10 @@ export async function generateImageFromText(openRouterApiKey, laoZhangApiKey, bo
  * @param {Object} options - Дополнительные опции для GetImg API
  * @returns {Promise<{imageUrl: string, promptUsed: string}>}
  */
-export async function generateImageFromTextWithGetImg(openRouterApiKey, getImgApiKey, bookTitle, author, textChunk, imageModel = 'seedream-v4', options = {}) {
+export async function generateImageFromTextWithGetImg(openRouterApiKey, getImgApiKey, bookTitle, author, textChunk, imageModel = 'seedream-v4', options = {}, prevSceneDescription = null, audience = 'adults') {
   try {
     // Шаг 1: Генерируем промпт для изображения через OpenRouter (Gemini модель)
-    const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk);
+    const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
     
     // Шаг 2: Генерируем изображение через GetImg API
     const imageUrl = await generateImageWithGetImg(getImgApiKey, imagePrompt, imageModel, options);
@@ -571,13 +574,13 @@ async function downloadGigaChatImage(accessToken, fileId, clientId) {
  * @param {string} scope - Scope для OAuth (по умолчанию 'GIGACHAT_API_PERS')
  * @returns {Promise<{imageUrl: string, promptUsed: string}>}
  */
-export async function generateImageFromTextWithGigaChat(openRouterApiKey, gigachatAuthKey, gigachatClientId, bookTitle, author, textChunk, scope = 'GIGACHAT_API_PERS') {
+export async function generateImageFromTextWithGigaChat(openRouterApiKey, gigachatAuthKey, gigachatClientId, bookTitle, author, textChunk, scope = 'GIGACHAT_API_PERS', prevSceneDescription = null, audience = 'adults') {
   try {
     // Шаг 1: Получаем access_token
     const accessToken = await getGigaChatAccessToken(gigachatAuthKey, gigachatClientId, scope);
     
     // Шаг 2: Генерируем промпт для изображения через OpenRouter (Gemini модель)
-    const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk);
+    const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
     
     // Шаг 3: Формируем запрос на русском для GigaChat
     const russianPrompt = `Нарисуй ${imagePrompt}`;
@@ -640,15 +643,62 @@ export function handleGenApiCallback(callbackData) {
       const image = callbackData.output.image;
       if (typeof image === 'string') {
         if (image.startsWith('http')) {
-          imageUrl = image;
+          // Если это URL, скачиваем и конвертируем в base64 для единообразия
+          try {
+            const imageResponse = await axios.get(image, { responseType: 'arraybuffer', timeout: 30000 });
+            const imageBuffer = Buffer.from(imageResponse.data);
+            const base64Image = imageBuffer.toString('base64');
+            // Определяем тип изображения из Content-Type или расширения URL
+            const contentType = imageResponse.headers['content-type'] || 'image/png';
+            imageUrl = `data:${contentType};base64,${base64Image}`;
+          } catch (downloadError) {
+            console.error('Failed to download image from URL:', downloadError.message);
+            // Если не удалось скачать, возвращаем URL как есть
+            imageUrl = image;
+          }
         } else if (image.startsWith('data:')) {
+          // Уже в формате data URL
           imageUrl = image;
+        } else {
+          // Предполагаем, что это base64 строка без префикса
+          // Конвертируем в data URL (по умолчанию PNG)
+          imageUrl = `data:image/png;base64,${image}`;
         }
       }
     } else if (callbackData.output.image_url) {
-      imageUrl = callbackData.output.image_url;
+      const url = callbackData.output.image_url;
+      if (url.startsWith('http')) {
+        // Скачиваем и конвертируем в base64
+        try {
+          const imageResponse = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 });
+          const imageBuffer = Buffer.from(imageResponse.data);
+          const base64Image = imageBuffer.toString('base64');
+          const contentType = imageResponse.headers['content-type'] || 'image/png';
+          imageUrl = `data:${contentType};base64,${base64Image}`;
+        } catch (downloadError) {
+          console.error('Failed to download image from URL:', downloadError.message);
+          imageUrl = url;
+        }
+      } else {
+        imageUrl = url;
+      }
     } else if (callbackData.output.url) {
-      imageUrl = callbackData.output.url;
+      const url = callbackData.output.url;
+      if (url.startsWith('http')) {
+        // Скачиваем и конвертируем в base64
+        try {
+          const imageResponse = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 });
+          const imageBuffer = Buffer.from(imageResponse.data);
+          const base64Image = imageBuffer.toString('base64');
+          const contentType = imageResponse.headers['content-type'] || 'image/png';
+          imageUrl = `data:${contentType};base64,${base64Image}`;
+        } catch (downloadError) {
+          console.error('Failed to download image from URL:', downloadError.message);
+          imageUrl = url;
+        }
+      } else {
+        imageUrl = url;
+      }
     }
 
     if (imageUrl) {
@@ -758,10 +808,10 @@ async function generateImageWithGenApi(apiKey, prompt, callbackUrl, options = {}
  * @param {Object} options - Дополнительные опции для Gen-API
  * @returns {Promise<{imageUrl: string, promptUsed: string}>}
  */
-export async function generateImageFromTextWithGenApi(openRouterApiKey, genApiKey, bookTitle, author, textChunk, callbackBaseUrl, options = {}) {
+export async function generateImageFromTextWithGenApi(openRouterApiKey, genApiKey, bookTitle, author, textChunk, callbackBaseUrl, options = {}, prevSceneDescription = null, audience = 'adults') {
   try {
     // Шаг 1: Генерируем промпт для изображения через OpenRouter (Gemini модель)
-    const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk);
+    const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
     
     // Шаг 2: Формируем callback URL
     const callbackUrl = `${callbackBaseUrl}/api/gen-api-callback`;

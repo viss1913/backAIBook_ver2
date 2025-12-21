@@ -48,6 +48,27 @@ Content-Type: application/json
 
 ---
 
+## ⚡ Быстрый старт
+
+```kotlin
+// 1. Отправка запроса
+val request = GenerateImageRequest(
+    bookTitle = "Война и мир",
+    author = "Лев Толстой",
+    textChunk = "Он стоял на балконе..."
+)
+
+val response = api.generateImage("genapi", request)
+
+// 2. Получение изображения
+if (response.isSuccessful && response.body()?.success == true) {
+    val imageUrl = response.body()?.imageUrl // data:image/png;base64,...
+    displayImage(imageUrl!!)
+}
+```
+
+---
+
 ## Ответ
 
 ### Успешный ответ (200 OK)
@@ -62,8 +83,14 @@ Content-Type: application/json
 
 **Поля:**
 - `success` (boolean) - Успешность операции
-- `imageUrl` (string) - Изображение в формате base64 data URL
+- `imageUrl` (string) - Изображение в формате base64 data URL (например: `data:image/png;base64,iVBORw0KGgo...`)
 - `promptUsed` (string) - Промпт, использованный для генерации (для отладки)
+
+**⚠️ Формат изображения:**
+- Все изображения возвращаются в формате **base64 data URL**
+- Формат: `data:image/[тип];base64,[base64_строка]`
+- Типы: `png`, `jpeg`, `webp` (зависит от провайдера)
+- Android может работать с data URL напрямую через `BitmapFactory` или библиотеки типа Glide
 
 ### Ошибки
 
@@ -182,18 +209,31 @@ class BookReaderActivity : AppCompatActivity() {
     
     private fun displayImage(imageDataUrl: String) {
         try {
-            // Извлекаем base64 из data URL
-            // Формат: "data:image/jpeg;base64,/9j/4AAQ..."
-            val base64String = imageDataUrl.substringAfter(",")
-            
-            // Декодируем base64 в byte array
-            val imageBytes = Base64.decode(base64String, Base64.DEFAULT)
-            
-            // Создаем Bitmap
-            val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-            
-            // Отображаем в ImageView
-            imageView.setImageBitmap(bitmap)
+            // Проверяем формат: data URL или обычный URL
+            if (imageDataUrl.startsWith("data:")) {
+                // Извлекаем base64 из data URL
+                // Формат: "data:image/png;base64,iVBORw0KGgo..." или "data:image/jpeg;base64,/9j/4AAQ..."
+                val base64String = imageDataUrl.substringAfter(",")
+                
+                // Декодируем base64 в byte array
+                val imageBytes = Base64.decode(base64String, Base64.DEFAULT)
+                
+                // Создаем Bitmap
+                val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                
+                if (bitmap != null) {
+                    // Отображаем в ImageView
+                    imageView.setImageBitmap(bitmap)
+                } else {
+                    showError("Failed to decode image")
+                }
+            } else if (imageDataUrl.startsWith("http://") || imageDataUrl.startsWith("https://")) {
+                // Если это обычный URL (не должно быть, но на всякий случай)
+                // Используйте Glide или другую библиотеку для загрузки
+                displayImageWithGlide(imageDataUrl)
+            } else {
+                showError("Unknown image format")
+            }
             
         } catch (e: Exception) {
             showError("Failed to display image: ${e.message}")

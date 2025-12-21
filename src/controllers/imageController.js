@@ -21,8 +21,10 @@ export async function generateImage(req, res) {
       });
     }
 
-    const { bookTitle, author, textChunk } = validation.value;
+    const { bookTitle, author, textChunk, prevSceneDescription, audience } = validation.value;
     console.log('Validation passed. Book:', bookTitle, 'Author:', author);
+    console.log('Audience:', audience || 'adults');
+    console.log('Previous scene provided:', !!prevSceneDescription);
     
     // OpenRouter API ключ (используется для доступа к Gemini через OpenRouter)
     const openRouterApiKey = process.env.GEMINI_API_KEY;
@@ -69,7 +71,7 @@ export async function generateImage(req, res) {
 
       console.log('API keys check passed. Starting image generation with GigaChat...');
       console.log('Calling generateImageFromTextWithGigaChat...');
-      result = await generateImageFromTextWithGigaChat(openRouterApiKey, gigachatAuthKey, gigachatClientId, bookTitle, author, textChunk, gigachatScope);
+      result = await generateImageFromTextWithGigaChat(openRouterApiKey, gigachatAuthKey, gigachatClientId, bookTitle, author, textChunk, gigachatScope, prevSceneDescription || null, audience || 'adults');
     } else if (provider === 'getimg') {
       // Используем GetImg API
       const getImgApiKey = process.env.GETIMG_API_KEY;
@@ -98,7 +100,7 @@ export async function generateImage(req, res) {
 
       console.log('API keys check passed. Starting image generation with GetImg...');
       console.log('Calling generateImageFromTextWithGetImg...');
-      result = await generateImageFromTextWithGetImg(openRouterApiKey, getImgApiKey, bookTitle, author, textChunk, imageModel, options);
+      result = await generateImageFromTextWithGetImg(openRouterApiKey, getImgApiKey, bookTitle, author, textChunk, imageModel, options, prevSceneDescription || null, audience || 'adults');
     } else if (provider === 'genapi') {
       // Используем Gen-API (z-image)
       const genApiKey = process.env.GEN_API_KEY;
@@ -126,7 +128,7 @@ export async function generateImage(req, res) {
 
       console.log('API keys check passed. Starting image generation with Gen-API...');
       console.log('Calling generateImageFromTextWithGenApi...');
-      result = await generateImageFromTextWithGenApi(openRouterApiKey, genApiKey, bookTitle, author, textChunk, callbackBaseUrl, options);
+      result = await generateImageFromTextWithGenApi(openRouterApiKey, genApiKey, bookTitle, author, textChunk, callbackBaseUrl, options, prevSceneDescription || null, audience || 'adults');
     } else {
       // Используем LaoZhang API (по умолчанию)
       const laoZhangApiKey = process.env.LAOZHANG_API_KEY || process.env.LAOZHAN_API_KEY;
@@ -150,7 +152,7 @@ export async function generateImage(req, res) {
 
       console.log('API keys check passed. Starting image generation with LaoZhang...');
       console.log('Calling generateImageFromText...');
-      result = await generateImageFromText(openRouterApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel);
+      result = await generateImageFromText(openRouterApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel, prevSceneDescription || null, audience || 'adults');
     }
     
     console.log('Image generation completed. URL:', result.imageUrl);
