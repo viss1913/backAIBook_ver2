@@ -735,17 +735,86 @@ export async function handleGenApiCallback(callbackData) {
 }
 
 /**
+ * Long polling для получения результата Gen-API
+ * Использует правильный эндпоинт: GET /request/get/{request_id}
+ */
+async function pollGenApiResult(apiKey, requestId, maxAttempts = 60, intervalMs = 3000) {
+  console.log(`=== Long polling для request_id: ${requestId} ===`);
+  console.log(`Максимум попыток: ${maxAttempts}, интервал: ${intervalMs}ms`);
+  
+  const client = createGenApiClient(apiKey);
+  const endpoint = `/request/get/${requestId}`;
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      console.log(`Попытка ${attempt}/${maxAttempts}...`);
+      
+      const response = await client.get(endpoint);
+      const data = response.data;
+      
+      console.log(`Статус задачи: ${data.status || 'unknown'}`);
+      
+      if (data.status === 'success') {
+        console.log('✅ Генерация завершена успешно!');
+        
+        // Извлекаем URL из result[0] или full_response[0].url
+        let imageUrl = null;
+        
+        if (data.result && Array.isArray(data.result) && data.result.length > 0) {
+          imageUrl = data.result[0];
+          console.log('✅ URL найден в result[0]:', imageUrl);
+        } else if (data.full_response && Array.isArray(data.full_response) && data.full_response.length > 0) {
+          imageUrl = data.full_response[0].url;
+          console.log('✅ URL найден в full_response[0].url:', imageUrl);
+        }
+        
+        if (imageUrl) {
+          return { imageUrl, requestId, status: 'success' };
+        } else {
+          throw new Error('Image URL not found in result. Check result or full_response fields.');
+        }
+      } else if (data.status === 'failed' || data.status === 'error') {
+        throw new Error(`Gen-API generation failed: ${data.error || 'Unknown error'}`);
+      } else if (data.status === 'processing' || data.status === 'starting' || data.status === 'pending') {
+        console.log(`⏳ Задача в процессе (${data.status}), ждем...`);
+        // Ждем перед следующей попыткой
+        if (attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, intervalMs));
+        }
+      } else {
+        console.log(`⚠️  Неизвестный статус: ${data.status}, ждем...`);
+        if (attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, intervalMs));
+        }
+      }
+    } catch (error) {
+      if (error.response?.status === 404) {
+        console.log(`⚠️  Задача не найдена (404), пробуем еще раз...`);
+        if (attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, intervalMs));
+          continue;
+        }
+      }
+      throw error;
+    }
+  }
+  
+  throw new Error('Превышено время ожидания. Результат не получен.');
+}
+
+/**
  * Генерирует изображение через Gen-API z-image
+ * Использует long polling вместо callback (callback не работает надежно)
  * @param {string} apiKey - API ключ Gen-API
  * @param {string} prompt - Промпт для генерации
- * @param {string} callbackUrl - URL для callback
+ * @param {string} callbackUrl - URL для callback (не используется, но оставлен для совместимости)
  * @param {Object} options - Дополнительные опции
  * @returns {Promise<{imageUrl: string, requestId: number, status: string}>}
  */
 async function generateImageWithGenApi(apiKey, prompt, callbackUrl, options = {}) {
   console.log('=== generateImageWithGenApi ===');
   console.log('Prompt:', prompt.substring(0, 100) + '...');
-  console.log('Callback URL:', callbackUrl);
+  console.log('Используем long polling вместо callback');
   
   const client = createGenApiClient(apiKey);
   
@@ -758,10 +827,11 @@ async function generateImageWithGenApi(apiKey, prompt, callbackUrl, options = {}
     acceleration = 'high' // По умолчанию high для ускорения
   } = options;
 
+  // НЕ передаем callback_url, используем long polling
   const requestData = {
     translate_input: true,
     prompt: prompt,
-    callback_url: callbackUrl,
+    // callback_url не передаем - используем long polling
     width: width,
     height: height,
     num_images: 1,
@@ -769,7 +839,7 @@ async function generateImageWithGenApi(apiKey, prompt, callbackUrl, options = {}
     output_format: output_format,
     num_inference_steps: num_inference_steps,
     enable_safety_checker: true,
-    acceleration: acceleration, // Используем high по умолчанию
+    acceleration: acceleration,
     enable_prompt_expansion: false
   };
 
@@ -789,19 +859,10 @@ async function generateImageWithGenApi(apiKey, prompt, callbackUrl, options = {}
     console.log('Request ID:', requestId, '(type:', typeof requestId, ')');
     console.log('Status:', status);
     console.log('Full response:', JSON.stringify(response.data, null, 2));
+    console.log('\n⏳ Начинаем long polling для получения результата...');
 
-    // Создаем Promise для ожидания callback
-    return new Promise((resolve, reject) => {
-      genApiRequests.set(requestId, { resolve, reject });
-      
-      // Таймаут через 5 минут
-      setTimeout(() => {
-        if (genApiRequests.has(requestId)) {
-          genApiRequests.delete(requestId);
-          reject(new Error('Gen-API request timeout (5 minutes)'));
-        }
-      }, 300000);
-    });
+    // Используем long polling вместо ожидания callback
+    return await pollGenApiResult(apiKey, requestId);
 
   } catch (error) {
     console.error('Gen-API error:', error.message);
