@@ -1,19 +1,22 @@
 import axios from 'axios';
 import { generateImagePrompt } from '../utils/promptTemplate.js';
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const LAOZHANG_API_URL = 'https://api.laozhang.ai/v1/images/generations';
 const TIMEOUT = 30000; // 30 секунд
 
 /**
- * Создает клиент axios с настройками для Gemini API
+ * Создает клиент axios с настройками для OpenRouter API
  */
-function createGeminiClient(apiKey) {
+function createOpenRouterClient(apiKey) {
   return axios.create({
-    baseURL: GEMINI_API_URL,
+    baseURL: OPENROUTER_API_URL,
     timeout: TIMEOUT,
     headers: {
-      'Content-Type': 'application/json'
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://github.com/viss1913/backAIBook_ver2', // Опционально, для статистики
+      'X-Title': 'AI Book Reader Backend' // Опционально
     }
   });
 }
@@ -153,7 +156,7 @@ async function generateImage(laoZhangApiKey, prompt, bookTitle, author, model = 
 
 /**
  * Основная функция для генерации изображения
- * @param {string} geminiApiKey - API ключ Gemini (для генерации промпта)
+ * @param {string} openRouterApiKey - API ключ OpenRouter (для генерации промпта через Gemini)
  * @param {string} laoZhangApiKey - API ключ LaoZhang (для генерации изображения)
  * @param {string} bookTitle - Название книги
  * @param {string} author - Автор
@@ -161,10 +164,10 @@ async function generateImage(laoZhangApiKey, prompt, bookTitle, author, model = 
  * @param {string} imageModel - Модель для генерации изображения (по умолчанию 'flux-kontext-pro')
  * @returns {Promise<{imageUrl: string, promptUsed: string}>}
  */
-export async function generateImageFromText(geminiApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel = 'flux-kontext-pro') {
+export async function generateImageFromText(openRouterApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel = 'flux-kontext-pro') {
   try {
-    // Шаг 1: Генерируем промпт для изображения через Gemini
-    const imagePrompt = await generatePromptForImage(geminiApiKey, bookTitle, author, textChunk);
+    // Шаг 1: Генерируем промпт для изображения через OpenRouter (Gemini модель)
+    const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk);
     
     // Шаг 2: Генерируем изображение через LaoZhang API, добавляя контекст про человека, читающего книгу
     const imageUrl = await generateImage(laoZhangApiKey, imagePrompt, bookTitle, author, imageModel);

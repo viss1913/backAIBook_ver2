@@ -24,21 +24,22 @@ export async function generateImage(req, res) {
     const { bookTitle, author, textChunk } = validation.value;
     console.log('Validation passed. Book:', bookTitle, 'Author:', author);
     
-    const geminiApiKey = process.env.GEMINI_API_KEY;
+    // OpenRouter API ключ (используется для доступа к Gemini через OpenRouter)
+    const openRouterApiKey = process.env.GEMINI_API_KEY; // Переименуем переменную для ясности
     // Поддерживаем оба варианта названия переменной (с G и без G)
     const laoZhangApiKey = process.env.LAOZHANG_API_KEY || process.env.LAOZHAN_API_KEY;
 
     console.log('Checking API keys...');
-    console.log('GEMINI_API_KEY exists:', !!geminiApiKey);
+    console.log('GEMINI_API_KEY (OpenRouter) exists:', !!openRouterApiKey);
     console.log('LAOZHANG_API_KEY exists:', !!process.env.LAOZHANG_API_KEY);
     console.log('LAOZHAN_API_KEY exists:', !!process.env.LAOZHAN_API_KEY);
     console.log('Final laoZhangApiKey exists:', !!laoZhangApiKey);
 
-    if (!geminiApiKey) {
-      console.error('GEMINI_API_KEY is not set');
+    if (!openRouterApiKey) {
+      console.error('GEMINI_API_KEY (OpenRouter) is not set');
       return res.status(500).json({
         success: false,
-        error: 'Server configuration error: GEMINI_API_KEY is missing'
+        error: 'Server configuration error: GEMINI_API_KEY (OpenRouter key) is missing'
       });
     }
 
@@ -58,7 +59,7 @@ export async function generateImage(req, res) {
 
     // Генерация изображения
     console.log('Calling generateImageFromText...');
-    const result = await generateImageFromText(geminiApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel);
+    const result = await generateImageFromText(openRouterApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel);
     console.log('Image generation completed. URL:', result.imageUrl);
 
     return res.status(200).json({
