@@ -58,8 +58,8 @@ app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   
-  if (!process.env.PERPLEXITY_API_KEY) {
-    console.warn('⚠️  WARNING: PERPLEXITY_API_KEY is not set!');
+  if (!process.env.GEMINI_API_KEY) {
+    console.warn('⚠️  WARNING: GEMINI_API_KEY is not set!');
   }
   
   if (!process.env.LAOZHANG_API_KEY && !process.env.LAOZHAN_API_KEY) {

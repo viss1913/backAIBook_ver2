@@ -1,19 +1,18 @@
 import axios from 'axios';
 import { generateImagePrompt } from '../utils/promptTemplate.js';
 
-const PERPLEXITY_API_URL = 'https://api.perplexity.ai/chat/completions';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const LAOZHANG_API_URL = 'https://api.laozhang.ai/v1/images/generations';
 const TIMEOUT = 30000; // 30 секунд
 
 /**
- * Создает клиент axios с настройками для Perplexity API
+ * Создает клиент axios с настройками для Gemini API
  */
-function createPerplexityClient(apiKey) {
+function createGeminiClient(apiKey) {
   return axios.create({
-    baseURL: PERPLEXITY_API_URL,
+    baseURL: GEMINI_API_URL,
     timeout: TIMEOUT,
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json'
     }
   });
@@ -28,55 +27,59 @@ function createPerplexityClient(apiKey) {
  * @returns {Promise<string>} Сгенерированный промпт
  */
 async function generatePromptForImage(apiKey, bookTitle, author, textChunk) {
-  console.log('=== generatePromptForImage ===');
+  console.log('=== generatePromptForImage (Gemini) ===');
   console.log('API Key exists:', !!apiKey);
   console.log('API Key starts with:', apiKey ? apiKey.substring(0, 10) + '...' : 'N/A');
   
-  const client = createPerplexityClient(apiKey);
-  const systemPrompt = 'Создай промпт для image generation. Ты эксперт по созданию детальных, художественных промптов для генерации изображений.';
+  const client = createGeminiClient(apiKey);
   const userPrompt = generateImagePrompt(bookTitle, author, textChunk);
+  
+  // Gemini использует другой формат - system instruction в отдельном поле
+  const systemInstruction = 'Создай промпт для image generation. Ты эксперт по созданию детальных, художественных промптов для генерации изображений.';
 
   try {
-    console.log('Sending request to Perplexity API...');
-    const response = await client.post('', {
-      model: 'llama-3.1-sonar-huge-128k-online',
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt
-        },
-        {
-          role: 'user',
-          content: userPrompt
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 500
+    console.log('Sending request to Gemini API...');
+    // Gemini API использует ключ в URL параметре
+    const response = await client.post(`/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
+      contents: [{
+        parts: [{
+          text: userPrompt
+        }]
+      }],
+      systemInstruction: {
+        parts: [{
+          text: systemInstruction
+        }]
+      },
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 500
+      }
     });
 
-    console.log('Perplexity API response received');
-    const generatedPrompt = response.data?.choices?.[0]?.message?.content?.trim();
+    console.log('Gemini API response received');
+    const generatedPrompt = response.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     if (!generatedPrompt) {
       console.error('No prompt in response:', JSON.stringify(response.data));
-      throw new Error('Failed to generate prompt from Perplexity API');
+      throw new Error('Failed to generate prompt from Gemini API');
     }
 
     console.log('Prompt generated successfully');
     return generatedPrompt;
   } catch (error) {
-    console.error('Perplexity API error:', error.message);
+    console.error('Gemini API error:', error.message);
     console.error('Error status:', error.response?.status);
     console.error('Error data:', error.response?.data);
     
     if (error.response?.status === 429) {
       throw new Error('Rate limit exceeded. Please try again later.');
     }
-    if (error.response?.status === 401) {
-      console.error('Perplexity API returned 401 - Invalid API key');
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      console.error('Gemini API returned 401/403 - Invalid API key');
       console.error('API Key provided:', apiKey ? apiKey.substring(0, 10) + '...' : 'N/A');
-      throw new Error('Invalid Perplexity API key. Please check your PERPLEXITY_API_KEY environment variable.');
+      throw new Error('Invalid Gemini API key. Please check your GEMINI_API_KEY environment variable.');
     }
-    throw new Error(`Perplexity API error: ${error.message}`);
+    throw new Error(`Gemini API error: ${error.message}`);
   }
 }
 
@@ -142,7 +145,7 @@ async function generateImage(laoZhangApiKey, prompt, bookTitle, author, model = 
 
 /**
  * Основная функция для генерации изображения
- * @param {string} perplexityApiKey - API ключ Perplexity (для генерации промпта)
+ * @param {string} geminiApiKey - API ключ Gemini (для генерации промпта)
  * @param {string} laoZhangApiKey - API ключ LaoZhang (для генерации изображения)
  * @param {string} bookTitle - Название книги
  * @param {string} author - Автор
@@ -150,10 +153,10 @@ async function generateImage(laoZhangApiKey, prompt, bookTitle, author, model = 
  * @param {string} imageModel - Модель для генерации изображения (по умолчанию 'flux-kontext-pro')
  * @returns {Promise<{imageUrl: string, promptUsed: string}>}
  */
-export async function generateImageFromText(perplexityApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel = 'flux-kontext-pro') {
+export async function generateImageFromText(geminiApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel = 'flux-kontext-pro') {
   try {
-    // Шаг 1: Генерируем промпт для изображения через Perplexity
-    const imagePrompt = await generatePromptForImage(perplexityApiKey, bookTitle, author, textChunk);
+    // Шаг 1: Генерируем промпт для изображения через Gemini
+    const imagePrompt = await generatePromptForImage(geminiApiKey, bookTitle, author, textChunk);
     
     // Шаг 2: Генерируем изображение через LaoZhang API, добавляя контекст про человека, читающего книгу
     const imageUrl = await generateImage(laoZhangApiKey, imagePrompt, bookTitle, author, imageModel);
