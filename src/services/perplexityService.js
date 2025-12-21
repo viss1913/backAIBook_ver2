@@ -40,22 +40,30 @@ async function generatePromptForImage(apiKey, bookTitle, author, textChunk) {
   try {
     console.log('Sending request to Gemini API...');
     // Gemini API использует ключ в URL параметре
-    const response = await client.post(`/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
+    // Пробуем разные модели, начиная с gemini-2.0-flash-exp
+    const modelName = 'gemini-2.0-flash-exp';
+    const requestBody = {
       contents: [{
         parts: [{
           text: userPrompt
         }]
       }],
-      systemInstruction: {
-        parts: [{
-          text: systemInstruction
-        }]
-      },
       generationConfig: {
         temperature: 0.7,
         maxOutputTokens: 500
       }
-    });
+    };
+    
+    // Добавляем systemInstruction, если поддерживается моделью
+    if (systemInstruction) {
+      requestBody.systemInstruction = {
+        parts: [{
+          text: systemInstruction
+        }]
+      };
+    }
+    
+    const response = await client.post(`/${modelName}:generateContent?key=${apiKey}`, requestBody);
 
     console.log('Gemini API response received');
     const generatedPrompt = response.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
