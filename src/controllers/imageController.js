@@ -125,6 +125,9 @@ export async function generateImage(req, res) {
       if (req.query.model) options.model = req.query.model;
       if (req.query.output_format) options.output_format = req.query.output_format;
       if (req.query.num_inference_steps) options.num_inference_steps = parseInt(req.query.num_inference_steps);
+      
+      // Всегда используем high acceleration для ускорения генерации
+      options.acceleration = 'high';
 
       console.log('API keys check passed. Starting image generation with Gen-API...');
       console.log('Calling generateImageFromTextWithGenApi...');
