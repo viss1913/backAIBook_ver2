@@ -62,8 +62,8 @@ app.listen(PORT, () => {
     console.warn('⚠️  WARNING: PERPLEXITY_API_KEY is not set!');
   }
   
-  if (!process.env.LAOZHANG_API_KEY) {
-    console.warn('⚠️  WARNING: LAOZHANG_API_KEY is not set!');
+  if (!process.env.LAOZHANG_API_KEY && !process.env.LAOZHAN_API_KEY) {
+    console.warn('⚠️  WARNING: LAOZHANG_API_KEY or LAOZHAN_API_KEY is not set!');
   }
 });
 

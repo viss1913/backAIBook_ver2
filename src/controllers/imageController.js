@@ -18,7 +18,8 @@ export async function generateImage(req, res) {
 
     const { bookTitle, author, textChunk } = validation.value;
     const perplexityApiKey = process.env.PERPLEXITY_API_KEY;
-    const laoZhangApiKey = process.env.LAOZHANG_API_KEY;
+    // Поддерживаем оба варианта названия переменной (с G и без G)
+    const laoZhangApiKey = process.env.LAOZHANG_API_KEY || process.env.LAOZHAN_API_KEY;
 
     if (!perplexityApiKey) {
       console.error('PERPLEXITY_API_KEY is not set');
@@ -29,10 +30,10 @@ export async function generateImage(req, res) {
     }
 
     if (!laoZhangApiKey) {
-      console.error('LAOZHANG_API_KEY is not set');
+      console.error('LAOZHANG_API_KEY or LAOZHAN_API_KEY is not set');
       return res.status(500).json({
         success: false,
-        error: 'Server configuration error: LAOZHANG_API_KEY is missing'
+        error: 'Server configuration error: LAOZHANG_API_KEY or LAOZHAN_API_KEY is missing'
       });
     }
 
