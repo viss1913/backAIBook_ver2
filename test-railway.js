@@ -58,3 +58,4 @@ axios.post(`${BASE_URL}/api/generate-image`, testData, {
   console.error(`\n⏱️  Время до ошибки: ${(duration / 1000).toFixed(2)} секунд`);
 });
 
+

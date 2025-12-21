@@ -41,8 +41,8 @@ async function generatePromptForImage(apiKey, bookTitle, author, textChunk) {
   try {
     console.log('Sending request to OpenRouter API...');
     // OpenRouter использует OpenAI-совместимый формат
-    // Модель: google/gemini-2.0-flash-exp или google/gemini-2.0-flash-exp:free
-    const modelName = 'google/gemini-2.0-flash-exp';
+    // Модель: google/gemini-2.5-flash (боевая модель)
+    const modelName = 'google/gemini-2.5-flash';
     const response = await client.post('', {
       model: modelName,
       messages: [

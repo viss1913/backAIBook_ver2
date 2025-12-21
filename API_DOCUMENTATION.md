@@ -561,3 +561,4 @@ curl -X POST https://your-app-name.railway.app/api/generate-image \
 3. Проверьте логи сервера (если есть доступ)
 4. Убедитесь, что API ключ настроен на сервере
 
+

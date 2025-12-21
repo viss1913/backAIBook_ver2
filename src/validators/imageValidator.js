@@ -63,3 +63,4 @@ export function validateGenerateImageRequest(data) {
   };
 }
 
+
