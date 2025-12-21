@@ -70,15 +70,16 @@ async function generatePromptForImage(apiKey, bookTitle, author, textChunk) {
  * Использует специальный запрос для генерации изображения
  * @param {string} apiKey - API ключ Perplexity
  * @param {string} prompt - Промпт для генерации изображения
+ * @param {string} bookTitle - Название книги
+ * @param {string} author - Автор книги
  * @returns {Promise<string>} URL сгенерированного изображения
  */
-async function generateImage(apiKey, prompt) {
+async function generateImage(apiKey, prompt, bookTitle, author) {
   const client = createPerplexityClient(apiKey);
 
   try {
-    // Запрос на генерацию изображения через Perplexity
-    // Используем специальный промпт, который просит API сгенерировать изображение
-    const imageRequestPrompt = `Based on this detailed image generation prompt, generate an image and return the image URL. The prompt is: ${prompt}. Return only the direct URL to the generated image.`;
+    // Добавляем контекст про человека, читающего книгу
+    const imageRequestPrompt = `Человек читает книгу "${bookTitle}" автора ${author}. Сгенери плиз по этому промпту картинку: "${prompt}". Return only the direct URL to the generated image.`;
 
     const response = await client.post('', {
       model: 'llama-3.1-sonar-huge-128k-online',
@@ -162,8 +163,8 @@ export async function generateImageFromText(apiKey, bookTitle, author, textChunk
     // Шаг 1: Генерируем промпт для изображения через Perplexity
     const imagePrompt = await generatePromptForImage(apiKey, bookTitle, author, textChunk);
     
-    // Шаг 2: Генерируем изображение используя созданный промпт
-    const imageUrl = await generateImage(apiKey, imagePrompt);
+    // Шаг 2: Генерируем изображение, добавляя контекст про человека, читающего книгу
+    const imageUrl = await generateImage(apiKey, imagePrompt, bookTitle, author);
 
     return {
       imageUrl,
