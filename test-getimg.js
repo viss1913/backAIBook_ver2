@@ -79,3 +79,4 @@ async function testGetImgGeneration() {
 // Запускаем тест
 testGetImgGeneration();
 
+

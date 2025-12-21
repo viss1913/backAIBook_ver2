@@ -83,3 +83,4 @@ GIGACHAT_SCOPE=GIGACHAT_API_PERS (опционально)
 1. Установить переменные окружения на сервере
 2. Отправить запрос с фронтенда на `/api/generate-image?provider=gigachat`
 
+

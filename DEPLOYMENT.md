@@ -57,3 +57,4 @@ PERPLEXITY_API_KEY=ваш_ключ_perplexity
 2. Логи на Railway - не должно быть ошибок о missing API keys
 3. Тестовый запрос на генерацию изображения
 
+

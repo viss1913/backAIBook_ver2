@@ -668,76 +668,63 @@ export async function handleGenApiCallback(callbackData) {
 
   console.log(`Found pending request for ID: ${requestId}`);
 
-  if (callbackData.status === 'success' && callbackData.output) {
-    // Извлекаем изображение из output
+  // ВАЖНО: Структура ответа Gen-API:
+  // - result: массив с URL ["https://..."]
+  // - full_response: массив объектов [{"url": "https://..."}]
+  // - output: может отсутствовать (старый формат)
+  
+  if (callbackData.status === 'success') {
+    // Извлекаем изображение из правильных полей
     let imageUrl = null;
     
-    if (callbackData.output.image) {
-      const image = callbackData.output.image;
-      if (typeof image === 'string') {
-        if (image.startsWith('http')) {
-          // Если это URL, скачиваем и конвертируем в base64 для единообразия
-          try {
-            const imageResponse = await axios.get(image, { responseType: 'arraybuffer', timeout: 30000 });
-            const imageBuffer = Buffer.from(imageResponse.data);
-            const base64Image = imageBuffer.toString('base64');
-            // Определяем тип изображения из Content-Type или расширения URL
-            const contentType = imageResponse.headers['content-type'] || 'image/png';
-            imageUrl = `data:${contentType};base64,${base64Image}`;
-          } catch (downloadError) {
-            console.error('Failed to download image from URL:', downloadError.message);
-            // Если не удалось скачать, возвращаем URL как есть
+    // Вариант 1: result - массив с URL (ПРАВИЛЬНЫЙ для Gen-API!)
+    if (callbackData.result && Array.isArray(callbackData.result) && callbackData.result.length > 0) {
+      imageUrl = callbackData.result[0];
+      console.log('✅ Изображение найдено в result[0]:', imageUrl);
+    }
+    // Вариант 2: full_response - массив объектов с url
+    else if (callbackData.full_response && Array.isArray(callbackData.full_response) && callbackData.full_response.length > 0) {
+      imageUrl = callbackData.full_response[0].url;
+      console.log('✅ Изображение найдено в full_response[0].url:', imageUrl);
+    }
+    // Вариант 3: output (старый формат, может отсутствовать)
+    else if (callbackData.output) {
+      console.log('📦 Используем старый формат output');
+      
+      if (callbackData.output.image) {
+        const image = callbackData.output.image;
+        if (typeof image === 'string') {
+          if (image.startsWith('http')) {
+            // Если это URL, передаем напрямую на фронт (не конвертируем в base64)
             imageUrl = image;
+          } else if (image.startsWith('data:')) {
+            // Уже в формате data URL, передаем как есть
+            imageUrl = image;
+          } else {
+            // Предполагаем, что это base64 строка без префикса
+            // Конвертируем в data URL (по умолчанию PNG)
+            imageUrl = `data:image/png;base64,${image}`;
           }
-        } else if (image.startsWith('data:')) {
-          // Уже в формате data URL
-          imageUrl = image;
-        } else {
-          // Предполагаем, что это base64 строка без префикса
-          // Конвертируем в data URL (по умолчанию PNG)
-          imageUrl = `data:image/png;base64,${image}`;
         }
-      }
-    } else if (callbackData.output.image_url) {
-      const url = callbackData.output.image_url;
-      if (url.startsWith('http')) {
-        // Скачиваем и конвертируем в base64
-        try {
-          const imageResponse = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 });
-          const imageBuffer = Buffer.from(imageResponse.data);
-          const base64Image = imageBuffer.toString('base64');
-          const contentType = imageResponse.headers['content-type'] || 'image/png';
-          imageUrl = `data:${contentType};base64,${base64Image}`;
-        } catch (downloadError) {
-          console.error('Failed to download image from URL:', downloadError.message);
-          imageUrl = url;
-        }
-      } else {
-        imageUrl = url;
-      }
-    } else if (callbackData.output.url) {
-      const url = callbackData.output.url;
-      if (url.startsWith('http')) {
-        // Скачиваем и конвертируем в base64
-        try {
-          const imageResponse = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 });
-          const imageBuffer = Buffer.from(imageResponse.data);
-          const base64Image = imageBuffer.toString('base64');
-          const contentType = imageResponse.headers['content-type'] || 'image/png';
-          imageUrl = `data:${contentType};base64,${base64Image}`;
-        } catch (downloadError) {
-          console.error('Failed to download image from URL:', downloadError.message);
-          imageUrl = url;
-        }
-      } else {
-        imageUrl = url;
+      } else if (callbackData.output.image_url) {
+        // Передаем URL напрямую на фронт
+        imageUrl = callbackData.output.image_url;
+      } else if (callbackData.output.url) {
+        // Передаем URL напрямую на фронт
+        imageUrl = callbackData.output.url;
       }
     }
 
     if (imageUrl) {
+      // Передаем URL напрямую на фронт (не конвертируем в base64)
+      // Фронт может загрузить изображение по URL
+      console.log('✅ Изображение найдено, передаем URL на фронт:', imageUrl);
       request.resolve({ imageUrl, requestId, status: 'success' });
     } else {
-      request.reject(new Error('No image found in callback output'));
+      console.error('❌ Изображение не найдено в callback данных');
+      console.error('Доступные поля:', Object.keys(callbackData));
+      console.error('Полные данные:', JSON.stringify(callbackData, null, 2));
+      request.reject(new Error('No image found in callback data. Check result, full_response, or output fields.'));
     }
   } else if (callbackData.status === 'failed' || callbackData.status === 'error') {
     request.reject(new Error(`Gen-API generation failed: ${callbackData.error || 'Unknown error'}`));

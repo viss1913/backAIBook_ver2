@@ -150,3 +150,4 @@ POST /api/generate-image?provider=genapi
 - Тот же процесс, но синхронный
 - Результат возвращается сразу
 
+
