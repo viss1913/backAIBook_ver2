@@ -1,5 +1,5 @@
 import { validateGenerateImageRequest, validateGetImagesFromPerplexityRequest } from '../validators/imageValidator.js';
-import { generateImageFromText, generateImageFromTextWithGetImg, generateImageFromTextWithGigaChat, getImagesFromPerplexity } from '../services/perplexityService.js';
+import { generateImageFromText, generateImageFromTextWithGetImg, generateImageFromTextWithGigaChat, generateImageFromTextWithGenApi, getImagesFromPerplexity } from '../services/perplexityService.js';
 
 /**
  * Контроллер для генерации изображений
@@ -99,6 +99,34 @@ export async function generateImage(req, res) {
       console.log('API keys check passed. Starting image generation with GetImg...');
       console.log('Calling generateImageFromTextWithGetImg...');
       result = await generateImageFromTextWithGetImg(openRouterApiKey, getImgApiKey, bookTitle, author, textChunk, imageModel, options);
+    } else if (provider === 'genapi') {
+      // Используем Gen-API (z-image)
+      const genApiKey = process.env.GEN_API_KEY;
+      const callbackBaseUrl = process.env.RAILWAY_URL || req.protocol + '://' + req.get('host');
+      
+      console.log('Checking Gen-API credentials...');
+      console.log('GEN_API_KEY exists:', !!genApiKey);
+      console.log('Callback Base URL:', callbackBaseUrl);
+      
+      if (!genApiKey) {
+        console.error('GEN_API_KEY is not set');
+        return res.status(500).json({
+          success: false,
+          error: 'Server configuration error: GEN_API_KEY is missing'
+        });
+      }
+
+      // Получаем дополнительные опции из query параметров
+      const options = {};
+      if (req.query.width) options.width = parseInt(req.query.width);
+      if (req.query.height) options.height = parseInt(req.query.height);
+      if (req.query.model) options.model = req.query.model;
+      if (req.query.output_format) options.output_format = req.query.output_format;
+      if (req.query.num_inference_steps) options.num_inference_steps = parseInt(req.query.num_inference_steps);
+
+      console.log('API keys check passed. Starting image generation with Gen-API...');
+      console.log('Calling generateImageFromTextWithGenApi...');
+      result = await generateImageFromTextWithGenApi(openRouterApiKey, genApiKey, bookTitle, author, textChunk, callbackBaseUrl, options);
     } else {
       // Используем LaoZhang API (по умолчанию)
       const laoZhangApiKey = process.env.LAOZHANG_API_KEY || process.env.LAOZHAN_API_KEY;

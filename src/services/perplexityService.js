@@ -9,7 +9,12 @@ const PERPLEXITY_API_URL = 'https://api.perplexity.ai/chat/completions';
 const GETIMG_API_URL = 'https://api.getimg.ai/v1';
 const GIGACHAT_OAUTH_URL = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth';
 const GIGACHAT_API_URL = 'https://gigachat.devices.sberbank.ru/api/v1';
+const GEN_API_BASE = 'https://api.gen-api.ru/api/v1';
 const TIMEOUT = 30000; // 30 секунд
+
+// Хранилище для асинхронных запросов Gen-API (в памяти)
+// В production лучше использовать Redis или БД
+const genApiRequests = new Map(); // request_id -> { promise, resolve, reject }
 
 // HTTPS agent для GigaChat (отключаем проверку SSL)
 const gigachatHttpsAgent = new https.Agent({
@@ -585,6 +590,187 @@ export async function generateImageFromTextWithGigaChat(openRouterApiKey, gigach
 
     return {
       imageUrl,
+      promptUsed: imagePrompt
+    };
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
+ * Создает клиент axios для Gen-API
+ */
+function createGenApiClient(apiKey) {
+  return axios.create({
+    baseURL: GEN_API_BASE,
+    timeout: TIMEOUT,
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
+  });
+}
+
+/**
+ * Обрабатывает callback от Gen-API
+ * @param {Object} callbackData - Данные из callback
+ */
+export function handleGenApiCallback(callbackData) {
+  console.log('=== handleGenApiCallback ===');
+  console.log('Callback data:', JSON.stringify(callbackData, null, 2));
+  
+  const requestId = callbackData.request_id;
+  if (!requestId) {
+    console.error('No request_id in callback');
+    return;
+  }
+
+  const request = genApiRequests.get(requestId);
+  if (!request) {
+    console.warn(`No pending request found for request_id: ${requestId}`);
+    return;
+  }
+
+  if (callbackData.status === 'success' && callbackData.output) {
+    // Извлекаем изображение из output
+    let imageUrl = null;
+    
+    if (callbackData.output.image) {
+      const image = callbackData.output.image;
+      if (typeof image === 'string') {
+        if (image.startsWith('http')) {
+          imageUrl = image;
+        } else if (image.startsWith('data:')) {
+          imageUrl = image;
+        }
+      }
+    } else if (callbackData.output.image_url) {
+      imageUrl = callbackData.output.image_url;
+    } else if (callbackData.output.url) {
+      imageUrl = callbackData.output.url;
+    }
+
+    if (imageUrl) {
+      request.resolve({ imageUrl, requestId, status: 'success' });
+    } else {
+      request.reject(new Error('No image found in callback output'));
+    }
+  } else if (callbackData.status === 'failed' || callbackData.status === 'error') {
+    request.reject(new Error(`Gen-API generation failed: ${callbackData.error || 'Unknown error'}`));
+  } else {
+    // Еще обрабатывается
+    console.log(`Request ${requestId} still processing: ${callbackData.status}`);
+  }
+}
+
+/**
+ * Генерирует изображение через Gen-API z-image
+ * @param {string} apiKey - API ключ Gen-API
+ * @param {string} prompt - Промпт для генерации
+ * @param {string} callbackUrl - URL для callback
+ * @param {Object} options - Дополнительные опции
+ * @returns {Promise<{imageUrl: string, requestId: number, status: string}>}
+ */
+async function generateImageWithGenApi(apiKey, prompt, callbackUrl, options = {}) {
+  console.log('=== generateImageWithGenApi ===');
+  console.log('Prompt:', prompt.substring(0, 100) + '...');
+  console.log('Callback URL:', callbackUrl);
+  
+  const client = createGenApiClient(apiKey);
+  
+  const {
+    width = 992,
+    height = 992,
+    model = 'turbo',
+    output_format = 'png',
+    num_inference_steps = 8,
+    acceleration = 'high' // По умолчанию high для ускорения
+  } = options;
+
+  const requestData = {
+    translate_input: true,
+    prompt: prompt,
+    callback_url: callbackUrl,
+    width: width,
+    height: height,
+    num_images: 1,
+    model: model,
+    output_format: output_format,
+    num_inference_steps: num_inference_steps,
+    enable_safety_checker: true,
+    acceleration: acceleration, // Используем high по умолчанию
+    enable_prompt_expansion: false
+  };
+
+  try {
+    console.log('Sending request to Gen-API...');
+    const response = await client.post('/networks/z-image', requestData);
+
+    console.log('Gen-API response received');
+    
+    const requestId = response.data.request_id;
+    const status = response.data.status;
+
+    if (!requestId) {
+      throw new Error('No request_id in Gen-API response');
+    }
+
+    console.log('Request ID:', requestId);
+    console.log('Status:', status);
+
+    // Создаем Promise для ожидания callback
+    return new Promise((resolve, reject) => {
+      genApiRequests.set(requestId, { resolve, reject });
+      
+      // Таймаут через 5 минут
+      setTimeout(() => {
+        if (genApiRequests.has(requestId)) {
+          genApiRequests.delete(requestId);
+          reject(new Error('Gen-API request timeout (5 minutes)'));
+        }
+      }, 300000);
+    });
+
+  } catch (error) {
+    console.error('Gen-API error:', error.message);
+    console.error('Error status:', error.response?.status);
+    console.error('Error data:', error.response?.data);
+    
+    if (error.response?.status === 402) {
+      throw new Error('Gen-API quota exceeded. Please top-up your account.');
+    }
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      throw new Error('Invalid Gen-API key');
+    }
+    throw new Error(`Gen-API error: ${error.message}`);
+  }
+}
+
+/**
+ * Генерирует изображение через Gen-API с использованием промпта от OpenRouter
+ * @param {string} openRouterApiKey - API ключ OpenRouter (для генерации промпта через Gemini)
+ * @param {string} genApiKey - API ключ Gen-API
+ * @param {string} bookTitle - Название книги
+ * @param {string} author - Автор
+ * @param {string} textChunk - Фрагмент текста
+ * @param {string} callbackBaseUrl - Базовый URL для callback (например, Railway URL)
+ * @param {Object} options - Дополнительные опции для Gen-API
+ * @returns {Promise<{imageUrl: string, promptUsed: string}>}
+ */
+export async function generateImageFromTextWithGenApi(openRouterApiKey, genApiKey, bookTitle, author, textChunk, callbackBaseUrl, options = {}) {
+  try {
+    // Шаг 1: Генерируем промпт для изображения через OpenRouter (Gemini модель)
+    const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk);
+    
+    // Шаг 2: Формируем callback URL
+    const callbackUrl = `${callbackBaseUrl}/api/gen-api-callback`;
+    
+    // Шаг 3: Генерируем изображение через Gen-API (асинхронно)
+    const result = await generateImageWithGenApi(genApiKey, imagePrompt, callbackUrl, options);
+
+    return {
+      imageUrl: result.imageUrl,
       promptUsed: imagePrompt
     };
   } catch (error) {

@@ -81,5 +81,13 @@ app.listen(PORT, () => {
   if (!process.env.GIGACHAT_CLIENT_ID) {
     console.warn('⚠️  WARNING: GIGACHAT_CLIENT_ID is not set!');
   }
+  
+  if (!process.env.GEN_API_KEY) {
+    console.warn('⚠️  WARNING: GEN_API_KEY is not set!');
+  }
+  
+  if (!process.env.RAILWAY_URL) {
+    console.warn('⚠️  WARNING: RAILWAY_URL is not set! (needed for Gen-API callbacks)');
+  }
 });
 
