@@ -53,9 +53,9 @@ export async function generateImage(req, res) {
     console.log('Validation passed. Style:', appliedStyle.key);
     console.log('Validation passed. Book:', bookTitle, 'Author:', author);
 
-    // Генерируем хэш контента для кэширования
-    const hash = crypto.createHash('sha256').update(`${bookTitle}:${author}:${textChunk}`).digest('hex');
-    console.log('Content hash:', hash);
+    // Генерируем хэш контента для кэширования (теперь включая стиль)
+    const hash = crypto.createHash('sha256').update(`${bookTitle}:${author}:${textChunk}:${appliedStyle.key}`).digest('hex');
+    console.log('Content hash (with style):', hash);
 
     // Проверяем в базе
     let existingBook = await findBookByHash(hash);
@@ -93,8 +93,8 @@ export async function generateImage(req, res) {
     }
 
     let result;
-
     const styleSuffix = appliedStyle.promptSuffix;
+    console.log(`Applied style: ${appliedStyle.key}, suffix: ${styleSuffix}`);
 
     if (provider === 'gigachat') {
       const gigachatAuthKey = process.env.GIGACHAT_AUTH_KEY;
