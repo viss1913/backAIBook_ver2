@@ -10,9 +10,6 @@ const GETIMG_API_URL = 'https://api.getimg.ai/v1';
 const GEN_API_BASE = 'https://api.gen-api.ru/api/v1';
 const TIMEOUT = 30000; // 30 секунд
 
-// Хранилище для асинхронных запросов Gen-API (в памяти)
-// В production лучше использовать Redis или БД
-const genApiRequests = new Map(); // request_id -> { promise, resolve, reject }
 
 /**
  * Создает клиент axios с настройками для OpenRouter API
@@ -520,124 +517,6 @@ function createGenApiClient(apiKey) {
   });
 }
 
-/**
- * Обрабатывает callback от Gen-API
- * @param {Object} callbackData - Данные из callback
- */
-export async function handleGenApiCallback(callbackData) {
-  console.log('=== handleGenApiCallback ===');
-  console.log('Callback data:', JSON.stringify(callbackData, null, 2));
-  console.log('Current pending requests:', Array.from(genApiRequests.keys()));
-
-  const requestId = callbackData.request_id;
-  if (!requestId) {
-    console.error('No request_id in callback');
-    console.error('Available keys in callbackData:', Object.keys(callbackData));
-    return;
-  }
-
-  console.log(`Looking for request_id: ${requestId} (type: ${typeof requestId})`);
-
-  // Пробуем найти по разным типам ID (число/строка)
-  let request = genApiRequests.get(requestId);
-
-  if (!request) {
-    // Пробуем числовой вариант
-    const numericId = typeof requestId === 'string' ? parseInt(requestId, 10) : Number(requestId);
-    if (!isNaN(numericId)) {
-      request = genApiRequests.get(numericId);
-      if (request) {
-        console.log(`Found request by numeric ID: ${numericId}`);
-        // Обновляем ключ на правильный тип
-        genApiRequests.delete(numericId);
-        genApiRequests.set(requestId, request);
-      }
-    }
-  }
-
-  if (!request) {
-    // Пробуем строковый вариант
-    const stringId = String(requestId);
-    request = genApiRequests.get(stringId);
-    if (request) {
-      console.log(`Found request by string ID: ${stringId}`);
-    }
-  }
-
-  if (!request) {
-    console.warn(`No pending request found for request_id: ${requestId} (type: ${typeof requestId})`);
-    console.warn(`Available request IDs:`, Array.from(genApiRequests.keys()));
-    console.warn(`Trying to find by numeric: ${typeof requestId === 'string' ? parseInt(requestId, 10) : Number(requestId)}`);
-    return;
-  }
-
-  console.log(`Found pending request for ID: ${requestId}`);
-
-  // ВАЖНО: Структура ответа Gen-API:
-  // - result: массив с URL ["https://..."]
-  // - full_response: массив объектов [{"url": "https://..."}]
-  // - output: может отсутствовать (старый формат)
-
-  if (callbackData.status === 'success') {
-    // Извлекаем изображение из правильных полей
-    let imageUrl = null;
-
-    // Вариант 1: result - массив с URL (ПРАВИЛЬНЫЙ для Gen-API!)
-    if (callbackData.result && Array.isArray(callbackData.result) && callbackData.result.length > 0) {
-      imageUrl = callbackData.result[0];
-      console.log('✅ Изображение найдено в result[0]:', imageUrl);
-    }
-    // Вариант 2: full_response - массив объектов с url
-    else if (callbackData.full_response && Array.isArray(callbackData.full_response) && callbackData.full_response.length > 0) {
-      imageUrl = callbackData.full_response[0].url;
-      console.log('✅ Изображение найдено в full_response[0].url:', imageUrl);
-    }
-    // Вариант 3: output (старый формат, может отсутствовать)
-    else if (callbackData.output) {
-      console.log('📦 Используем старый формат output');
-
-      if (callbackData.output.image) {
-        const image = callbackData.output.image;
-        if (typeof image === 'string') {
-          if (image.startsWith('http')) {
-            // Если это URL, передаем напрямую на фронт (не конвертируем в base64)
-            imageUrl = image;
-          } else if (image.startsWith('data:')) {
-            // Уже в формате data URL, передаем как есть
-            imageUrl = image;
-          } else {
-            // Предполагаем, что это base64 строка без префикса
-            // Конвертируем в data URL (по умолчанию PNG)
-            imageUrl = `data:image/png;base64,${image}`;
-          }
-        }
-      } else if (callbackData.output.image_url) {
-        // Передаем URL напрямую на фронт
-        imageUrl = callbackData.output.image_url;
-      } else if (callbackData.output.url) {
-        // Передаем URL напрямую на фронт
-        imageUrl = callbackData.output.url;
-      }
-    }
-
-    if (imageUrl) {
-      // Передаем URL напрямую на фронт (не конвертируем в base64)
-      // Фронт может загрузить изображение по URL
-      console.log('✅ Изображение найдено, передаем URL на фронт:', imageUrl);
-      request.resolve({ imageUrl, requestId, status: 'success' });
-    } else {
-      console.error('❌ Изображение не найдено в callback данных');
-      console.error('Доступные поля:', Object.keys(callbackData));
-      console.error('Полные данные:', JSON.stringify(callbackData, null, 2));
-      request.reject(new Error('No image found in callback data. Check result, full_response, or output fields.'));
-    }
-  } else if (callbackData.status === 'failed' || callbackData.status === 'error') {
-    request.reject(new Error(`Gen-API generation failed: ${callbackData.error || 'Unknown error'}`));
-  } else {
-    // Еще обрабатывается
-    console.log(`Request ${requestId} still processing: ${callbackData.status}`);
-  }
-}
 
 /**
  * Long polling для получения результата Gen-API
@@ -712,11 +591,10 @@ async function pollGenApiResult(apiKey, requestId, maxAttempts = 60, intervalMs 
  * Использует long polling вместо callback (callback не работает надежно)
  * @param {string} apiKey - API ключ Gen-API
  * @param {string} prompt - Промпт для генерации
- * @param {string} callbackUrl - URL для callback (не используется, но оставлен для совместимости)
  * @param {Object} options - Дополнительные опции
  * @returns {Promise<{imageUrl: string, requestId: number, status: string}>}
  */
-async function generateImageWithGenApi(apiKey, prompt, callbackUrl, options = {}) {
+async function generateImageWithGenApi(apiKey, prompt, options = {}) {
   console.log('=== generateImageWithGenApi ===');
   console.log('Full Prompt length:', prompt.length);
   console.log('Prompt Start:', prompt.substring(0, 100) + '...');
@@ -787,17 +665,16 @@ async function generateImageWithGenApi(apiKey, prompt, callbackUrl, options = {}
 }
 
 /**
- * Генерирует изображение через Gen-API с использованием промпта от OpenRouter
- * @param {string} openRouterApiKey - API ключ OpenRouter (для генерации промпта через Gemini)
+ * Генерирует изображение через Gen-API с использованием промпта от Perplexity
+ * @param {string} promptApiKey - API ключ Perplexity (для генерации промпта)
  * @param {string} genApiKey - API ключ Gen-API
  * @param {string} bookTitle - Название книги
  * @param {string} author - Автор
  * @param {string} textChunk - Фрагмент текста
- * @param {string} callbackBaseUrl - Базовый URL для callback (например, Railway URL)
  * @param {Object} options - Дополнительные опции для Gen-API
  * @returns {Promise<{imageUrl: string, promptUsed: string}>}
  */
-export async function generateImageFromTextWithGenApi(promptApiKey, genApiKey, bookTitle, author, textChunk, callbackBaseUrl, options = {}, prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
+export async function generateImageFromTextWithGenApi(promptApiKey, genApiKey, bookTitle, author, textChunk, options = {}, prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
   try {
     // Шаг 1: Генерируем промпт для изображения через Perplexity
     const imagePrompt = await generatePromptWithPerplexity(promptApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
@@ -807,11 +684,8 @@ export async function generateImageFromTextWithGenApi(promptApiKey, genApiKey, b
     console.log('DEBUG: Generated finalPrompt for Gen-API (length:', finalPrompt.length, ')');
     console.log('DEBUG: Style suffix added:', styleSuffix || 'none');
 
-    // Шаг 2: Формируем callback URL
-    const callbackUrl = `${callbackBaseUrl}/api/gen-api-callback`;
-
     // Шаг 3: Генерируем изображение через Gen-API (асинхронно)
-    const result = await generateImageWithGenApi(genApiKey, finalPrompt, callbackUrl, options);
+    const result = await generateImageWithGenApi(genApiKey, finalPrompt, options);
 
     return {
       imageUrl: result.imageUrl,

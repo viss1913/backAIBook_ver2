@@ -139,11 +139,11 @@ export async function generateImage(req, res) {
       result = await generateImageFromTextWithGetImg(promptApiKey, getImgApiKey, bookTitle, author, textChunk, imageModel, options, prevSceneDescription || null, audience || 'adults', styleSuffix);
     } else if (provider === 'genapi') {
       const genApiKey = process.env.GEN_API_KEY;
-      const callbackBaseUrl = process.env.RAILWAY_URL || req.protocol + '://' + req.get('host');
-      const options = { acceleration: 'high' };
+      const options = {};
       if (req.query.width) options.width = parseInt(req.query.width);
       if (req.query.height) options.height = parseInt(req.query.height);
-      result = await generateImageFromTextWithGenApi(promptApiKey, genApiKey, bookTitle, author, textChunk, callbackBaseUrl, options, prevSceneDescription || null, audience || 'adults', styleSuffix);
+
+      result = await generateImageFromTextWithGenApi(promptApiKey, genApiKey, bookTitle, author, textChunk, options, prevSceneDescription || null, audience || 'adults', styleSuffix);
     } else {
       const laoZhangApiKey = process.env.LAOZHANG_API_KEY || process.env.LAOZHAN_API_KEY;
       const imageModel = req.query.model || 'flux-kontext-pro';
