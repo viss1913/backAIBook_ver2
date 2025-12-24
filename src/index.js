@@ -45,11 +45,20 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoint
+// Health check endpoints
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'AI Book Reader Backend is running',
+    version: '1.0.0'
+  });
+});
+
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
   });
 });
 

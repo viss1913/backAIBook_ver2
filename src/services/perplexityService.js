@@ -524,15 +524,12 @@ function createGenApiClient(apiKey) {
  */
 async function pollGenApiResult(apiKey, requestId, maxAttempts = 60, intervalMs = 3000) {
   console.log(`=== Long polling для request_id: ${requestId} ===`);
-  console.log(`Максимум попыток: ${maxAttempts}, интервал: ${intervalMs}ms`);
-
   const client = createGenApiClient(apiKey);
   const endpoint = `/request/get/${requestId}`;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      console.log(`Попытка ${attempt}/${maxAttempts}...`);
-
+      console.log(`Попытка ${attempt}/${maxAttempts} (GET ${endpoint})...`);
       const response = await client.get(endpoint);
       const data = response.data;
 
@@ -541,7 +538,7 @@ async function pollGenApiResult(apiKey, requestId, maxAttempts = 60, intervalMs 
       if (data.status === 'success') {
         console.log('✅ Генерация завершена успешно!');
 
-        // Извлекаем URL из result[0] или full_response[0].url
+        // Извлекаем URL изображения (приоритет: result[0], затем full_response[0].url)
         let imageUrl = null;
 
         if (data.result && Array.isArray(data.result) && data.result.length > 0) {
@@ -553,27 +550,32 @@ async function pollGenApiResult(apiKey, requestId, maxAttempts = 60, intervalMs 
         }
 
         if (imageUrl) {
+          // Обработка формата (base64 или URL)
+          if (!imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
+            console.log('📦 Добавляем префикс base64 к результату');
+            imageUrl = `data:image/png;base64,${imageUrl}`;
+          }
           return { imageUrl, requestId, status: 'success' };
         } else {
-          throw new Error('Image URL not found in result. Check result or full_response fields.');
+          console.error('Full response data:', JSON.stringify(data, null, 2));
+          throw new Error('Image URL not found in Gen-API success response');
         }
       } else if (data.status === 'failed' || data.status === 'error') {
         throw new Error(`Gen-API generation failed: ${data.error || 'Unknown error'}`);
-      } else if (data.status === 'processing' || data.status === 'starting' || data.status === 'pending') {
+      } else if (['processing', 'starting', 'pending', 'queued'].includes(data.status)) {
         console.log(`⏳ Задача в процессе (${data.status}), ждем...`);
-        // Ждем перед следующей попыткой
         if (attempt < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, intervalMs));
         }
       } else {
-        console.log(`⚠️  Неизвестный статус: ${data.status}, ждем...`);
+        console.log(`⚠️  Неизвестный статус: ${data.status}, продолжаем опрос...`);
         if (attempt < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, intervalMs));
         }
       }
     } catch (error) {
       if (error.response?.status === 404) {
-        console.log(`⚠️  Задача не найдена (404), пробуем еще раз...`);
+        console.log(`⚠️  Задача ${requestId} не найдена (404), возможно еще не проиндексирована. Ждем...`);
         if (attempt < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, intervalMs));
           continue;
@@ -583,7 +585,7 @@ async function pollGenApiResult(apiKey, requestId, maxAttempts = 60, intervalMs 
     }
   }
 
-  throw new Error('Превышено время ожидания. Результат не получен.');
+  throw new Error(`Превышено время ожидания (${maxAttempts} попыток). Результат для ${requestId} не получен.`);
 }
 
 /**
@@ -638,11 +640,11 @@ async function generateImageWithGenApi(apiKey, prompt, options = {}) {
     const status = response.data.status;
 
     if (!requestId) {
+      console.error('Gen-API response without request_id:', JSON.stringify(response.data, null, 2));
       throw new Error('No request_id in Gen-API response');
     }
 
-    console.log('Request ID:', requestId, '(type:', typeof requestId, ')');
-    console.log('Status:', status);
+    console.log(`✅ Задача создана! Request ID: ${requestId}, Status: ${status}`);
     console.log('Full response:', JSON.stringify(response.data, null, 2));
     console.log('\n⏳ Начинаем long polling для получения результата...');
 
