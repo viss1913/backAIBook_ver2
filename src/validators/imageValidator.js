@@ -12,7 +12,7 @@ const generateImageSchema = Joi.object({
       'any.required': 'bookTitle is required',
       'string.empty': 'bookTitle cannot be empty'
     }),
-  
+
   author: Joi.string()
     .max(50)
     .required()
@@ -21,7 +21,7 @@ const generateImageSchema = Joi.object({
       'any.required': 'author is required',
       'string.empty': 'author cannot be empty'
     }),
-  
+
   textChunk: Joi.string()
     .required()
     .custom((value, helpers) => {
@@ -36,7 +36,7 @@ const generateImageSchema = Joi.object({
       'any.required': 'textChunk is required',
       'string.empty': 'textChunk cannot be empty'
     }),
-  
+
   prevSceneDescription: Joi.string()
     .max(500)
     .allow(null, '')
@@ -44,13 +44,18 @@ const generateImageSchema = Joi.object({
     .messages({
       'string.max': 'prevSceneDescription must not exceed 500 characters'
     }),
-  
+
   audience: Joi.string()
-    .valid('adults', 'children', 'teens')
-    .default('adults')
     .optional()
     .messages({
       'any.only': 'audience must be one of: adults, children, teens'
+    }),
+
+  styleKey: Joi.string()
+    .max(50)
+    .optional()
+    .messages({
+      'string.max': 'styleKey must not exceed 50 characters'
     })
 });
 
@@ -73,14 +78,14 @@ const getImagesFromPerplexitySchema = Joi.object({
       'any.required': 'query is required',
       'string.empty': 'query cannot be empty'
     }),
-  
+
   imageFormatFilter: Joi.array()
     .items(Joi.string().valid('jpeg', 'png', 'webp', 'gif', 'svg', 'bmp'))
     .optional()
     .messages({
       'array.includesUnknownSingle': 'imageFormatFilter must contain only valid formats: jpeg, png, webp, gif, svg, bmp'
     }),
-  
+
   imageDomainFilter: Joi.array()
     .items(Joi.string())
     .optional()

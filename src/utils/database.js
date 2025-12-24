@@ -44,6 +44,7 @@ export async function initDatabase() {
         type ENUM('cover', 'inline') NOT NULL,
         image_url TEXT NOT NULL,
         prompt TEXT,
+        style_key VARCHAR(50) DEFAULT 'standard',
         text_offset INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
@@ -139,10 +140,10 @@ export async function getBookIllustrations(bookId) {
 /**
  * Сохранение иллюстрации
  */
-export async function saveIllustration(bookId, type, imageUrl, prompt, offset = 0) {
+export async function saveIllustration(bookId, type, imageUrl, prompt, styleKey = 'standard', offset = 0) {
   const [result] = await pool.query(
-    'INSERT INTO illustrations (book_id, type, image_url, prompt, text_offset) VALUES (?, ?, ?, ?, ?)',
-    [bookId, type, imageUrl, prompt, offset]
+    'INSERT INTO illustrations (book_id, type, image_url, prompt, style_key, text_offset) VALUES (?, ?, ?, ?, ?, ?)',
+    [bookId, type, imageUrl, prompt, styleKey, offset]
   );
   return result.insertId;
 }

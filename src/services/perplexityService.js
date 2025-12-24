@@ -45,14 +45,14 @@ function createOpenRouterClient(apiKey) {
  * @param {string} textChunk - Фрагмент текста
  * @returns {Promise<string>} Сгенерированный промпт
  */
-async function generatePromptForImage(apiKey, bookTitle, author, textChunk, prevSceneDescription = null, audience = 'adults') {
+export async function generatePromptForImage(apiKey, bookTitle, author, textChunk, prevSceneDescription = null, audience = 'adults') {
   console.log('=== generatePromptForImage (OpenRouter/Gemini) ===');
   console.log('API Key exists:', !!apiKey);
   console.log('API Key starts with:', apiKey ? apiKey.substring(0, 10) + '...' : 'N/A');
   console.log('Book:', bookTitle, 'by', author);
   console.log('Audience:', audience);
   console.log('Previous scene provided:', !!prevSceneDescription);
-  
+
   const client = createOpenRouterClient(apiKey);
   const userPrompt = generateImagePrompt(bookTitle, author, textChunk, prevSceneDescription, audience);
   const systemPrompt = 'You are an expert at creating detailed, artistic prompts for AI image generators. Your task is to analyze book text and create professional image generation prompts in English.';
@@ -91,7 +91,7 @@ async function generatePromptForImage(apiKey, bookTitle, author, textChunk, prev
     console.error('OpenRouter API error:', error.message);
     console.error('Error status:', error.response?.status);
     console.error('Error data:', error.response?.data);
-    
+
     if (error.response?.status === 429) {
       throw new Error('Rate limit exceeded. Please try again later.');
     }
@@ -127,12 +127,12 @@ function createLaoZhangClient(apiKey) {
  * @param {string} model - Модель для генерации (по умолчанию 'flux-kontext-pro')
  * @returns {Promise<string>} URL сгенерированного изображения
  */
-async function generateImage(laoZhangApiKey, prompt, bookTitle, author, model = 'flux-kontext-pro') {
+async function generateImage(laoZhangApiKey, prompt, bookTitle, author, model = 'flux-kontext-pro', styleSuffix = '') {
   const client = createLaoZhangClient(laoZhangApiKey);
 
   try {
-    // Добавляем контекст про человека, читающего книгу
-    const imagePrompt = `Человек читает книгу "${bookTitle}" автора ${author}. ${prompt}`;
+    // Добавляем контекст и стиль
+    const imagePrompt = `Человек читает книгу "${bookTitle}" автора ${author}. ${prompt.trim()}${styleSuffix ? ', ' + styleSuffix : ''}`;
 
     const response = await client.post('', {
       model: model,
@@ -143,7 +143,7 @@ async function generateImage(laoZhangApiKey, prompt, bookTitle, author, model = 
 
     // LaoZhang API возвращает OpenAI-совместимый формат
     const imageUrl = response.data?.data?.[0]?.url;
-    
+
     if (!imageUrl) {
       throw new Error('No image URL in response from LaoZhang API');
     }
@@ -200,9 +200,9 @@ function createPerplexityClient(apiKey) {
 export async function getImagesFromPerplexity(apiKey, query, options = {}) {
   console.log('=== getImagesFromPerplexity ===');
   console.log('Query:', query);
-  
+
   const client = createPerplexityClient(apiKey);
-  
+
   const requestData = {
     model: 'sonar',
     return_images: true,
@@ -228,7 +228,7 @@ export async function getImagesFromPerplexity(apiKey, query, options = {}) {
     const response = await client.post('', requestData);
 
     console.log('Perplexity API response received');
-    
+
     const images = response.data?.images || [];
     const textResponse = response.data?.choices?.[0]?.message?.content || '';
     const citations = response.data?.citations || [];
@@ -252,7 +252,7 @@ export async function getImagesFromPerplexity(apiKey, query, options = {}) {
     console.error('Perplexity API error:', error.message);
     console.error('Error status:', error.response?.status);
     console.error('Error data:', error.response?.data);
-    
+
     if (error.response?.status === 429) {
       throw new Error('Rate limit exceeded. Please try again later.');
     }
@@ -297,9 +297,9 @@ async function generateImageWithGetImg(apiKey, prompt, model = 'seedream-v4', op
   console.log('=== generateImageWithGetImg ===');
   console.log('Model:', model);
   console.log('Prompt:', prompt.substring(0, 100) + '...');
-  
+
   const client = createGetImgClient(apiKey);
-  
+
   const {
     width = 1024,
     height = 1024,
@@ -320,7 +320,7 @@ async function generateImageWithGetImg(apiKey, prompt, model = 'seedream-v4', op
     const response = await client.post(`/${model}/text-to-image`, requestData);
 
     console.log('GetImg API response received');
-    
+
     // GetImg API возвращает изображение в base64 или URL
     // Проверяем формат ответа
     let imageUrl;
@@ -344,7 +344,7 @@ async function generateImageWithGetImg(apiKey, prompt, model = 'seedream-v4', op
     console.error('GetImg API error:', error.message);
     console.error('Error status:', error.response?.status);
     console.error('Error data:', error.response?.data);
-    
+
     if (error.response?.status === 402) {
       const errorMessage = error.response.data?.error?.message || 'Quota exceeded. Please top-up your GetImg account.';
       throw new Error(`GetImg API quota exceeded: ${errorMessage}`);
@@ -363,13 +363,13 @@ async function generateImageWithGetImg(apiKey, prompt, model = 'seedream-v4', op
   }
 }
 
-export async function generateImageFromText(openRouterApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel = 'flux-kontext-pro', prevSceneDescription = null, audience = 'adults') {
+export async function generateImageFromText(openRouterApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel = 'flux-kontext-pro', prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
   try {
     // Шаг 1: Генерируем промпт для изображения через OpenRouter (Gemini модель)
     const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
-    
-    // Шаг 2: Генерируем изображение через LaoZhang API, добавляя контекст про человека, читающего книгу
-    const imageUrl = await generateImage(laoZhangApiKey, imagePrompt, bookTitle, author, imageModel);
+
+    // Шаг 2: Генерируем изображение через LaoZhang API
+    const imageUrl = await generateImage(laoZhangApiKey, imagePrompt, bookTitle, author, imageModel, styleSuffix);
 
     return {
       imageUrl,
@@ -391,13 +391,16 @@ export async function generateImageFromText(openRouterApiKey, laoZhangApiKey, bo
  * @param {Object} options - Дополнительные опции для GetImg API
  * @returns {Promise<{imageUrl: string, promptUsed: string}>}
  */
-export async function generateImageFromTextWithGetImg(openRouterApiKey, getImgApiKey, bookTitle, author, textChunk, imageModel = 'seedream-v4', options = {}, prevSceneDescription = null, audience = 'adults') {
+export async function generateImageFromTextWithGetImg(openRouterApiKey, getImgApiKey, bookTitle, author, textChunk, imageModel = 'seedream-v4', options = {}, prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
   try {
     // Шаг 1: Генерируем промпт для изображения через OpenRouter (Gemini модель)
     const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
-    
+
+    // Объединяем промпт со стилем
+    const finalPrompt = `${imagePrompt.trim()}${styleSuffix ? ', ' + styleSuffix : ''}`;
+
     // Шаг 2: Генерируем изображение через GetImg API
-    const imageUrl = await generateImageWithGetImg(getImgApiKey, imagePrompt, imageModel, options);
+    const imageUrl = await generateImageWithGetImg(getImgApiKey, finalPrompt, imageModel, options);
 
     return {
       imageUrl,
@@ -417,7 +420,7 @@ export async function generateImageFromTextWithGetImg(openRouterApiKey, getImgAp
  */
 async function getGigaChatAccessToken(authKey, clientId, scope = 'GIGACHAT_API_PERS') {
   console.log('=== getGigaChatAccessToken ===');
-  
+
   try {
     const response = await axios.post(
       GIGACHAT_OAUTH_URL,
@@ -440,7 +443,7 @@ async function getGigaChatAccessToken(authKey, clientId, scope = 'GIGACHAT_API_P
     console.error('GigaChat OAuth error:', error.message);
     console.error('Error status:', error.response?.status);
     console.error('Error data:', error.response?.data);
-    
+
     if (error.response?.status === 401 || error.response?.status === 403) {
       throw new Error('Invalid GigaChat authorization key');
     }
@@ -469,7 +472,7 @@ function extractGigaChatImageId(content) {
 async function generateImageWithGigaChat(accessToken, prompt, clientId, systemPrompt = 'Ты помощник для создания изображений.') {
   console.log('=== generateImageWithGigaChat ===');
   console.log('Prompt:', prompt.substring(0, 100) + '...');
-  
+
   try {
     const response = await axios.post(
       `${GIGACHAT_API_URL}/chat/completions`,
@@ -501,7 +504,7 @@ async function generateImageWithGigaChat(accessToken, prompt, clientId, systemPr
 
     console.log('GigaChat API response received');
     const content = response.data.choices[0]?.message?.content;
-    
+
     const fileId = extractGigaChatImageId(content);
     if (!fileId) {
       throw new Error('No image ID found in GigaChat response');
@@ -513,7 +516,7 @@ async function generateImageWithGigaChat(accessToken, prompt, clientId, systemPr
     console.error('GigaChat API error:', error.message);
     console.error('Error status:', error.response?.status);
     console.error('Error data:', error.response?.data);
-    
+
     if (error.response?.status === 401 || error.response?.status === 403) {
       throw new Error('Invalid GigaChat access token');
     }
@@ -531,7 +534,7 @@ async function generateImageWithGigaChat(accessToken, prompt, clientId, systemPr
 async function downloadGigaChatImage(accessToken, fileId, clientId) {
   console.log('=== downloadGigaChatImage ===');
   console.log('File ID:', fileId);
-  
+
   try {
     const response = await axios.get(
       `${GIGACHAT_API_URL}/files/${fileId}/content`,
@@ -548,14 +551,14 @@ async function downloadGigaChatImage(accessToken, fileId, clientId) {
     );
 
     console.log('Image downloaded, size:', response.data.length, 'bytes');
-    
+
     // Конвертируем в base64 data URL
     const base64 = Buffer.from(response.data).toString('base64');
     return `data:image/jpeg;base64,${base64}`;
   } catch (error) {
     console.error('GigaChat download error:', error.message);
     console.error('Error status:', error.response?.status);
-    
+
     if (error.response?.status === 404) {
       throw new Error('Image file not found in GigaChat');
     }
@@ -574,20 +577,20 @@ async function downloadGigaChatImage(accessToken, fileId, clientId) {
  * @param {string} scope - Scope для OAuth (по умолчанию 'GIGACHAT_API_PERS')
  * @returns {Promise<{imageUrl: string, promptUsed: string}>}
  */
-export async function generateImageFromTextWithGigaChat(openRouterApiKey, gigachatAuthKey, gigachatClientId, bookTitle, author, textChunk, scope = 'GIGACHAT_API_PERS', prevSceneDescription = null, audience = 'adults') {
+export async function generateImageFromTextWithGigaChat(openRouterApiKey, gigachatAuthKey, gigachatClientId, bookTitle, author, textChunk, scope = 'GIGACHAT_API_PERS', prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
   try {
     // Шаг 1: Получаем access_token
     const accessToken = await getGigaChatAccessToken(gigachatAuthKey, gigachatClientId, scope);
-    
+
     // Шаг 2: Генерируем промпт для изображения через OpenRouter (Gemini модель)
     const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
-    
-    // Шаг 3: Формируем запрос на русском для GigaChat
-    const russianPrompt = `Нарисуй ${imagePrompt}`;
-    
+
+    // Шаг 3: Формируем запрос на русском для GigaChat + стиль
+    const russianPrompt = `Нарисуй ${imagePrompt.trim()}${styleSuffix ? '. Стиль: ' + styleSuffix : ''}`;
+
     // Шаг 4: Генерируем изображение через GigaChat
     const fileId = await generateImageWithGigaChat(accessToken, russianPrompt, gigachatClientId);
-    
+
     // Шаг 5: Скачиваем изображение
     const imageUrl = await downloadGigaChatImage(accessToken, fileId, gigachatClientId);
 
@@ -623,7 +626,7 @@ export async function handleGenApiCallback(callbackData) {
   console.log('=== handleGenApiCallback ===');
   console.log('Callback data:', JSON.stringify(callbackData, null, 2));
   console.log('Current pending requests:', Array.from(genApiRequests.keys()));
-  
+
   const requestId = callbackData.request_id;
   if (!requestId) {
     console.error('No request_id in callback');
@@ -635,7 +638,7 @@ export async function handleGenApiCallback(callbackData) {
 
   // Пробуем найти по разным типам ID (число/строка)
   let request = genApiRequests.get(requestId);
-  
+
   if (!request) {
     // Пробуем числовой вариант
     const numericId = typeof requestId === 'string' ? parseInt(requestId, 10) : Number(requestId);
@@ -649,7 +652,7 @@ export async function handleGenApiCallback(callbackData) {
       }
     }
   }
-  
+
   if (!request) {
     // Пробуем строковый вариант
     const stringId = String(requestId);
@@ -658,7 +661,7 @@ export async function handleGenApiCallback(callbackData) {
       console.log(`Found request by string ID: ${stringId}`);
     }
   }
-  
+
   if (!request) {
     console.warn(`No pending request found for request_id: ${requestId} (type: ${typeof requestId})`);
     console.warn(`Available request IDs:`, Array.from(genApiRequests.keys()));
@@ -672,11 +675,11 @@ export async function handleGenApiCallback(callbackData) {
   // - result: массив с URL ["https://..."]
   // - full_response: массив объектов [{"url": "https://..."}]
   // - output: может отсутствовать (старый формат)
-  
+
   if (callbackData.status === 'success') {
     // Извлекаем изображение из правильных полей
     let imageUrl = null;
-    
+
     // Вариант 1: result - массив с URL (ПРАВИЛЬНЫЙ для Gen-API!)
     if (callbackData.result && Array.isArray(callbackData.result) && callbackData.result.length > 0) {
       imageUrl = callbackData.result[0];
@@ -690,7 +693,7 @@ export async function handleGenApiCallback(callbackData) {
     // Вариант 3: output (старый формат, может отсутствовать)
     else if (callbackData.output) {
       console.log('📦 Используем старый формат output');
-      
+
       if (callbackData.output.image) {
         const image = callbackData.output.image;
         if (typeof image === 'string') {
@@ -741,25 +744,25 @@ export async function handleGenApiCallback(callbackData) {
 async function pollGenApiResult(apiKey, requestId, maxAttempts = 60, intervalMs = 3000) {
   console.log(`=== Long polling для request_id: ${requestId} ===`);
   console.log(`Максимум попыток: ${maxAttempts}, интервал: ${intervalMs}ms`);
-  
+
   const client = createGenApiClient(apiKey);
   const endpoint = `/request/get/${requestId}`;
-  
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       console.log(`Попытка ${attempt}/${maxAttempts}...`);
-      
+
       const response = await client.get(endpoint);
       const data = response.data;
-      
+
       console.log(`Статус задачи: ${data.status || 'unknown'}`);
-      
+
       if (data.status === 'success') {
         console.log('✅ Генерация завершена успешно!');
-        
+
         // Извлекаем URL из result[0] или full_response[0].url
         let imageUrl = null;
-        
+
         if (data.result && Array.isArray(data.result) && data.result.length > 0) {
           imageUrl = data.result[0];
           console.log('✅ URL найден в result[0]:', imageUrl);
@@ -767,7 +770,7 @@ async function pollGenApiResult(apiKey, requestId, maxAttempts = 60, intervalMs 
           imageUrl = data.full_response[0].url;
           console.log('✅ URL найден в full_response[0].url:', imageUrl);
         }
-        
+
         if (imageUrl) {
           return { imageUrl, requestId, status: 'success' };
         } else {
@@ -798,7 +801,7 @@ async function pollGenApiResult(apiKey, requestId, maxAttempts = 60, intervalMs 
       throw error;
     }
   }
-  
+
   throw new Error('Превышено время ожидания. Результат не получен.');
 }
 
@@ -815,9 +818,9 @@ async function generateImageWithGenApi(apiKey, prompt, callbackUrl, options = {}
   console.log('=== generateImageWithGenApi ===');
   console.log('Prompt:', prompt.substring(0, 100) + '...');
   console.log('Используем long polling вместо callback');
-  
+
   const client = createGenApiClient(apiKey);
-  
+
   const {
     width = 992,
     height = 992,
@@ -848,7 +851,7 @@ async function generateImageWithGenApi(apiKey, prompt, callbackUrl, options = {}
     const response = await client.post('/networks/z-image', requestData);
 
     console.log('Gen-API response received');
-    
+
     const requestId = response.data.request_id;
     const status = response.data.status;
 
@@ -868,7 +871,7 @@ async function generateImageWithGenApi(apiKey, prompt, callbackUrl, options = {}
     console.error('Gen-API error:', error.message);
     console.error('Error status:', error.response?.status);
     console.error('Error data:', error.response?.data);
-    
+
     if (error.response?.status === 402) {
       throw new Error('Gen-API quota exceeded. Please top-up your account.');
     }
@@ -890,16 +893,19 @@ async function generateImageWithGenApi(apiKey, prompt, callbackUrl, options = {}
  * @param {Object} options - Дополнительные опции для Gen-API
  * @returns {Promise<{imageUrl: string, promptUsed: string}>}
  */
-export async function generateImageFromTextWithGenApi(openRouterApiKey, genApiKey, bookTitle, author, textChunk, callbackBaseUrl, options = {}, prevSceneDescription = null, audience = 'adults') {
+export async function generateImageFromTextWithGenApi(openRouterApiKey, genApiKey, bookTitle, author, textChunk, callbackBaseUrl, options = {}, prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
   try {
     // Шаг 1: Генерируем промпт для изображения через OpenRouter (Gemini модель)
     const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
-    
+
+    // Объединяем промпт со стилем
+    const finalPrompt = `${imagePrompt.trim()}${styleSuffix ? ', ' + styleSuffix : ''}`;
+
     // Шаг 2: Формируем callback URL
     const callbackUrl = `${callbackBaseUrl}/api/gen-api-callback`;
-    
+
     // Шаг 3: Генерируем изображение через Gen-API (асинхронно)
-    const result = await generateImageWithGenApi(genApiKey, imagePrompt, callbackUrl, options);
+    const result = await generateImageWithGenApi(genApiKey, finalPrompt, callbackUrl, options);
 
     return {
       imageUrl: result.imageUrl,

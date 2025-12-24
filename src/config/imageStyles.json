@@ -1,0 +1,76 @@
+{
+    "imageStyles": [
+        {
+            "key": "standard",
+            "title": "Стандарт",
+            "description": "Универсальный кинематографичный стиль без ярко выраженной художественной школы.",
+            "promptSuffix": "cinematic digital illustration, natural colors, soft lighting, semi-realistic style, high detail, digital painting"
+        },
+        {
+            "key": "pencil_sketch",
+            "title": "Карандаш",
+            "description": "Черно-белый графитовый скетч, как рисунки карандашом в блокноте.",
+            "promptSuffix": "soft graphite pencil sketch, hand-drawn lines, black and white, subtle paper texture, no color, no digital painting, no 3d, no text"
+        },
+        {
+            "key": "soviet_cartoon",
+            "title": "Советские мультики",
+            "description": "Плоская уютная мультипликация в духе советских мультфильмов 60–80-х.",
+            "promptSuffix": "1970s Soviet cartoon style, flat colors, simple shapes, minimal shading, limited warm color palette, vintage Eastern European animation, thick outlines, child-friendly illustration"
+        },
+        {
+            "key": "renaissance",
+            "title": "Ренессанс",
+            "description": "Классическая живопись старых мастеров, как музейная картина.",
+            "promptSuffix": "Renaissance oil painting, in the style of old masters, rich warm colors, chiaroscuro lighting, detailed faces and fabrics, oil on canvas texture, classical composition, museum quality"
+        },
+        {
+            "key": "watercolor_storybook",
+            "title": "Акварельная сказка",
+            "description": "Мягкая акварель, как иллюстрации в детских книжках.",
+            "promptSuffix": "soft watercolor illustration, impressionist painting, loose brushstrokes, pastel colors, dreamy atmosphere, light bleeding edges, storybook style"
+        },
+        {
+            "key": "comic",
+            "title": "Комикс",
+            "description": "Графический роман с жирными контурами и динамикой.",
+            "promptSuffix": "comic book illustration, bold black outlines, flat shading, limited color palette, dynamic poses, expressive faces, graphic novel style, clean panels"
+        },
+        {
+            "key": "anime",
+            "title": "Аниме",
+            "description": "Яркий аниме-стиль с крупной мимикой и чистыми линиями.",
+            "promptSuffix": "anime style illustration, clean lineart, big expressive eyes, cel shading, vibrant colors, dynamic poses, detailed backgrounds, high quality anime art"
+        },
+        {
+            "key": "dark_fantasy",
+            "title": "Тёмное фэнтези",
+            "description": "Мрачный, атмосферный стиль для хоррора и тёмного фэнтези.",
+            "promptSuffix": "dark fantasy illustration, gothic atmosphere, deep shadows, muted color palette, dramatic lighting, eerie mood, highly detailed, concept art style"
+        },
+        {
+            "key": "retro_vintage",
+            "title": "Ретро книжка",
+            "description": "Ретро-винтажные иллюстрации, как в книгах середины XX века.",
+            "promptSuffix": "retro vintage book illustration, mid-century style, muted colors, simple geometric shapes, printed texture, slight misregistration, nostalgic storybook look"
+        },
+        {
+            "key": "engraved_classic",
+            "title": "Гравюра",
+            "description": "Чёрно-белые гравюры и офорты, как в старых книгах.",
+            "promptSuffix": "vintage engraved book illustration, black and white, fine cross-hatching, etching style, high detail, old print texture, Victorian era illustration"
+        },
+        {
+            "key": "soviet_poster",
+            "title": "Советские плакаты",
+            "description": "Героический агитплакат в конструктивистском стиле.",
+            "promptSuffix": "Soviet propaganda poster style, constructivist composition, bold red and beige colors, strong geometric shapes, dramatic perspective, large bold typography, heroic figures, minimal color palette, graphic illustration"
+        },
+        {
+            "key": "us_50s_pinup",
+            "title": "Реклама 50-х (pin-up)",
+            "description": "Яркая реклама 50-х с глянцевыми персонажами в духе pin-up.",
+            "promptSuffix": "1950s American pin-up advertising illustration, glamorous smiling women, exaggerated curves, bright pastel colors, smooth airbrushed shading, vintage magazine ad style, retro lettering, mid-century commercial art"
+        }
+    ]
+}
