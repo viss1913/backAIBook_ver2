@@ -11,7 +11,7 @@ http://localhost:3000
 
 **Production (Railway):**
 ```
-https://your-app-name.railway.app
+https://backaibookver2-production.up.railway.app
 ```
 
 Замените `your-app-name` на имя вашего приложения на Railway.
