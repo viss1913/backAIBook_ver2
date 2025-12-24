@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { generateImagePrompt } from '../utils/promptTemplate.js';
+import { generateImagePrompt, generateAnalysisPromptTemplate } from '../utils/promptTemplate.js';
 
 import https from 'https';
 
@@ -194,83 +194,98 @@ function createPerplexityClient(apiKey) {
 }
 
 /**
- * Получает изображения через Perplexity API на основе текстового запроса
+ * Генерирует промпт для изображения через Perplexity API (вместо Gemini/OpenRouter)
  * @param {string} apiKey - API ключ Perplexity
- * @param {string} query - Текстовый запрос для поиска изображений
- * @param {Object} options - Дополнительные опции
- * @param {string[]} options.imageFormatFilter - Фильтр по форматам изображений (jpeg, png, webp, gif, svg, bmp)
- * @param {string[]} options.imageDomainFilter - Фильтр по доменам (например, ["-gettyimages.com"] для исключения)
- * @returns {Promise<{images: Array, textResponse: string, citations: Array}>}
+ * @param {string} bookTitle - Название книги
+ * @param {string} author - Автор
+ * @param {string} textChunk - Фрагмент текста
+ * @returns {Promise<string>} Сгенерированный промпт
  */
-export async function getImagesFromPerplexity(apiKey, query, options = {}) {
-  console.log('=== getImagesFromPerplexity ===');
-  console.log('Query:', query);
+export async function generatePromptWithPerplexity(apiKey, bookTitle, author, textChunk, prevSceneDescription = null, audience = 'adults') {
+  console.log('=== generatePromptWithPerplexity ===');
+  console.log('API Key exists:', !!apiKey);
 
   const client = createPerplexityClient(apiKey);
-
-  const requestData = {
-    model: 'sonar',
-    return_images: true,
-    messages: [
-      {
-        role: 'user',
-        content: query
-      }
-    ]
-  };
-
-  // Добавляем фильтры, если они указаны
-  if (options.imageFormatFilter && options.imageFormatFilter.length > 0) {
-    requestData.image_format_filter = options.imageFormatFilter;
-  }
-
-  if (options.imageDomainFilter && options.imageDomainFilter.length > 0) {
-    requestData.image_domain_filter = options.imageDomainFilter;
-  }
+  const userPrompt = generateImagePrompt(bookTitle, author, textChunk, prevSceneDescription, audience);
+  const systemPrompt = 'You are an expert at creating detailed, artistic prompts for AI image generators. Your task is to analyze book text and create professional image generation prompts in English.';
 
   try {
-    console.log('Sending request to Perplexity API...');
-    const response = await client.post('', requestData);
+    const modelName = 'sonar'; // Можно использовать 'sonar-pro' для более высокого качества
+    console.log('Using Perplexity model:', modelName);
+
+    const response = await client.post('', {
+      model: modelName,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 1000
+    });
 
     console.log('Perplexity API response received');
+    const generatedPrompt = response.data?.choices?.[0]?.message?.content?.trim();
 
-    const images = response.data?.images || [];
-    const textResponse = response.data?.choices?.[0]?.message?.content || '';
-    const citations = response.data?.citations || [];
-    const searchResults = response.data?.search_results || [];
+    if (!generatedPrompt) {
+      console.error('No prompt in response:', JSON.stringify(response.data));
+      throw new Error('Failed to generate prompt from Perplexity API');
+    }
 
-    console.log(`Found ${images.length} images`);
-
-    return {
-      images: images.map(img => ({
-        imageUrl: img.image_url,
-        originUrl: img.origin_url,
-        title: img.title,
-        width: img.width,
-        height: img.height
-      })),
-      textResponse,
-      citations,
-      searchResults
-    };
+    console.log('Prompt generated successfully with Perplexity');
+    return generatedPrompt;
   } catch (error) {
-    console.error('Perplexity API error:', error.message);
-    console.error('Error status:', error.response?.status);
-    console.error('Error data:', error.response?.data);
-
-    if (error.response?.status === 429) {
-      throw new Error('Rate limit exceeded. Please try again later.');
+    console.error('Perplexity prompt API error:', error.message);
+    if (error.response?.status) {
+      console.error('Status:', error.response.status);
+      console.error('Data:', JSON.stringify(error.response.data));
     }
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      throw new Error('Invalid Perplexity API key');
-    }
-    if (error.response?.status === 400) {
-      const errorMessage = error.response.data?.error?.message || error.message;
-      throw new Error(`Perplexity API validation error: ${errorMessage}`);
-    }
-    throw new Error(`Perplexity API error: ${error.message}`);
+    throw new Error(`Perplexity prompt API error: ${error.message}`);
   }
 }
+
+/**
+ * Анализирует текст книги через Perplexity для поиска точек вставки иллюстраций
+ * (Альтернатива analyzeContentWithGemini)
+ */
+export async function analyzeContentWithPerplexity(apiKey, textChunk) {
+  console.log('=== analyzeContentWithPerplexity ===');
+
+  const client = createPerplexityClient(apiKey);
+  const userPrompt = generateAnalysisPromptTemplate(textChunk);
+  const systemPrompt = 'You are a literary analyst and art director. Your task is to find the most visually impactful moments in a book text for illustration.';
+
+  try {
+    const response = await client.post('', {
+      model: 'sonar',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.3
+    });
+
+    const content = response.data?.choices?.[0]?.message?.content;
+    if (!content) throw new Error('Failed to get analysis from Perplexity');
+
+    // Попытка извлечь JSON
+    const jsonMatch = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
+    const jsonStr = jsonMatch ? jsonMatch[0] : content;
+
+    try {
+      const result = JSON.parse(jsonStr);
+      return Array.isArray(result) ? result : (result.illustrations || []);
+    } catch (e) {
+      console.error('Failed to parse JSON from Perplexity response:', e.message);
+      // Если не распарсилось, возвращаем пустой массив или пробуем очистить от markdown
+      const cleanStr = content.replace(/```json|```/g, '').trim();
+      return JSON.parse(cleanStr);
+    }
+  } catch (error) {
+    console.error('Perplexity analysis error:', error.message);
+    throw error;
+  }
+}
+
 
 /**
  * Создает клиент axios для GetImg API
@@ -368,10 +383,10 @@ async function generateImageWithGetImg(apiKey, prompt, model = 'seedream-v4', op
   }
 }
 
-export async function generateImageFromText(openRouterApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel = 'flux-kontext-pro', prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
+export async function generateImageFromText(promptApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel = 'flux-kontext-pro', prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
   try {
-    // Шаг 1: Генерируем промпт для изображения через OpenRouter (Gemini модель)
-    const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
+    // Шаг 1: Генерируем промпт для изображения через Perplexity
+    const imagePrompt = await generatePromptWithPerplexity(promptApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
 
     // Шаг 2: Генерируем изображение через LaoZhang API
     const imageUrl = await generateImage(laoZhangApiKey, imagePrompt, bookTitle, author, imageModel, styleSuffix);
@@ -389,8 +404,8 @@ export async function generateImageFromText(openRouterApiKey, laoZhangApiKey, bo
 }
 
 /**
- * Генерирует изображение через GetImg API с использованием промпта от OpenRouter
- * @param {string} openRouterApiKey - API ключ OpenRouter (для генерации промпта через Gemini)
+ * Генерирует изображение через GetImg API с использованием промпта от Perplexity
+ * @param {string} promptApiKey - API ключ Perplexity (для генерации промпта)
  * @param {string} getImgApiKey - API ключ GetImg (для генерации изображения)
  * @param {string} bookTitle - Название книги
  * @param {string} author - Автор
@@ -399,10 +414,10 @@ export async function generateImageFromText(openRouterApiKey, laoZhangApiKey, bo
  * @param {Object} options - Дополнительные опции для GetImg API
  * @returns {Promise<{imageUrl: string, promptUsed: string}>}
  */
-export async function generateImageFromTextWithGetImg(openRouterApiKey, getImgApiKey, bookTitle, author, textChunk, imageModel = 'seedream-v4', options = {}, prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
+export async function generateImageFromTextWithGetImg(promptApiKey, getImgApiKey, bookTitle, author, textChunk, imageModel = 'seedream-v4', options = {}, prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
   try {
-    // Шаг 1: Генерируем промпт для изображения через OpenRouter (Gemini модель)
-    const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
+    // Шаг 1: Генерируем промпт для изображения через Perplexity
+    const imagePrompt = await generatePromptWithPerplexity(promptApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
 
     // Объединяем промпт со стилем
     const finalPrompt = `${imagePrompt.trim()}${styleSuffix ? ', ' + styleSuffix : ''}`;
@@ -575,8 +590,8 @@ async function downloadGigaChatImage(accessToken, fileId, clientId) {
 }
 
 /**
- * Генерирует изображение через GigaChat API с использованием промпта от OpenRouter
- * @param {string} openRouterApiKey - API ключ OpenRouter (для генерации промпта через Gemini)
+ * Генерирует изображение через GigaChat API с использованием промпта от Perplexity
+ * @param {string} promptApiKey - API ключ Perplexity (для генерации промпта)
  * @param {string} gigachatAuthKey - Ключ авторизации GigaChat (Base64)
  * @param {string} gigachatClientId - Client ID GigaChat
  * @param {string} bookTitle - Название книги
@@ -585,13 +600,13 @@ async function downloadGigaChatImage(accessToken, fileId, clientId) {
  * @param {string} scope - Scope для OAuth (по умолчанию 'GIGACHAT_API_PERS')
  * @returns {Promise<{imageUrl: string, promptUsed: string}>}
  */
-export async function generateImageFromTextWithGigaChat(openRouterApiKey, gigachatAuthKey, gigachatClientId, bookTitle, author, textChunk, scope = 'GIGACHAT_API_PERS', prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
+export async function generateImageFromTextWithGigaChat(promptApiKey, gigachatAuthKey, gigachatClientId, bookTitle, author, textChunk, scope = 'GIGACHAT_API_PERS', prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
   try {
     // Шаг 1: Получаем access_token
     const accessToken = await getGigaChatAccessToken(gigachatAuthKey, gigachatClientId, scope);
 
-    // Шаг 2: Генерируем промпт для изображения через OpenRouter (Gemini модель)
-    const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
+    // Шаг 2: Генерируем промпт для изображения через Perplexity
+    const imagePrompt = await generatePromptWithPerplexity(promptApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
 
     // Шаг 3: Формируем запрос на русском для GigaChat + стиль
     const russianPrompt = `Нарисуй ${imagePrompt.trim()}${styleSuffix ? '. Стиль: ' + styleSuffix : ''}`;
@@ -904,10 +919,10 @@ async function generateImageWithGenApi(apiKey, prompt, callbackUrl, options = {}
  * @param {Object} options - Дополнительные опции для Gen-API
  * @returns {Promise<{imageUrl: string, promptUsed: string}>}
  */
-export async function generateImageFromTextWithGenApi(openRouterApiKey, genApiKey, bookTitle, author, textChunk, callbackBaseUrl, options = {}, prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
+export async function generateImageFromTextWithGenApi(promptApiKey, genApiKey, bookTitle, author, textChunk, callbackBaseUrl, options = {}, prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
   try {
-    // Шаг 1: Генерируем промпт для изображения через OpenRouter (Gemini модель)
-    const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
+    // Шаг 1: Генерируем промпт для изображения через Perplexity
+    const imagePrompt = await generatePromptWithPerplexity(promptApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
 
     // Объединяем промпт со стилем
     const finalPrompt = `${imagePrompt.trim()}${styleSuffix ? ', ' + styleSuffix : ''}`;

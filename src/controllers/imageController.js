@@ -111,18 +111,18 @@ export async function generateImage(req, res) {
       existingBook = { id: bookId };
     }
 
-    // OpenRouter API ключ (используется для доступа к Gemini через OpenRouter)
-    const openRouterApiKey = process.env.GEMINI_API_KEY;
+    // Perplexity API ключ (используется для генерации промптов)
+    const promptApiKey = process.env.PERPLEXITY_API_KEY;
 
     // Определяем провайдера из query параметра (по умолчанию 'laozhang')
     const provider = req.query.provider || 'laozhang';
     console.log('Using provider:', provider);
 
-    if (!openRouterApiKey) {
-      console.error('GEMINI_API_KEY (OpenRouter) is not set');
+    if (!promptApiKey) {
+      console.error('PERPLEXITY_API_KEY is not set');
       return res.status(500).json({
         success: false,
-        error: 'Server configuration error: GEMINI_API_KEY (OpenRouter key) is missing'
+        error: 'Server configuration error: PERPLEXITY_API_KEY is missing (needed for prompt generation)'
       });
     }
 
@@ -134,25 +134,25 @@ export async function generateImage(req, res) {
       const gigachatAuthKey = process.env.GIGACHAT_AUTH_KEY;
       const gigachatClientId = process.env.GIGACHAT_CLIENT_ID;
       const gigachatScope = process.env.GIGACHAT_SCOPE || 'GIGACHAT_API_PERS';
-      result = await generateImageFromTextWithGigaChat(openRouterApiKey, gigachatAuthKey, gigachatClientId, bookTitle, author, textChunk, gigachatScope, prevSceneDescription || null, audience || 'adults', styleSuffix);
+      result = await generateImageFromTextWithGigaChat(promptApiKey, gigachatAuthKey, gigachatClientId, bookTitle, author, textChunk, gigachatScope, prevSceneDescription || null, audience || 'adults', styleSuffix);
     } else if (provider === 'getimg') {
       const getImgApiKey = process.env.GETIMG_API_KEY;
       const imageModel = req.query.model || 'seedream-v4';
       const options = {};
       if (req.query.width) options.width = parseInt(req.query.width);
       if (req.query.height) options.height = parseInt(req.query.height);
-      result = await generateImageFromTextWithGetImg(openRouterApiKey, getImgApiKey, bookTitle, author, textChunk, imageModel, options, prevSceneDescription || null, audience || 'adults', styleSuffix);
+      result = await generateImageFromTextWithGetImg(promptApiKey, getImgApiKey, bookTitle, author, textChunk, imageModel, options, prevSceneDescription || null, audience || 'adults', styleSuffix);
     } else if (provider === 'genapi') {
       const genApiKey = process.env.GEN_API_KEY;
       const callbackBaseUrl = process.env.RAILWAY_URL || req.protocol + '://' + req.get('host');
       const options = { acceleration: 'high' };
       if (req.query.width) options.width = parseInt(req.query.width);
       if (req.query.height) options.height = parseInt(req.query.height);
-      result = await generateImageFromTextWithGenApi(openRouterApiKey, genApiKey, bookTitle, author, textChunk, callbackBaseUrl, options, prevSceneDescription || null, audience || 'adults', styleSuffix);
+      result = await generateImageFromTextWithGenApi(promptApiKey, genApiKey, bookTitle, author, textChunk, callbackBaseUrl, options, prevSceneDescription || null, audience || 'adults', styleSuffix);
     } else {
       const laoZhangApiKey = process.env.LAOZHANG_API_KEY || process.env.LAOZHAN_API_KEY;
       const imageModel = req.query.model || 'flux-kontext-pro';
-      result = await generateImageFromText(openRouterApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel, prevSceneDescription || null, audience || 'adults', styleSuffix);
+      result = await generateImageFromText(promptApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel, prevSceneDescription || null, audience || 'adults', styleSuffix);
     }
 
     console.log('Image generation completed. URL:', result.imageUrl);
@@ -337,8 +337,9 @@ export async function analyzeBookContent(req, res) {
   }
 
   try {
-    const openRouterApiKey = process.env.GEMINI_API_KEY;
-    const analysis = await analyzeContentWithGemini(openRouterApiKey, textChunk);
+    const promptApiKey = process.env.PERPLEXITY_API_KEY;
+    const { analyzeContentWithPerplexity } = await import('../services/perplexityService.js');
+    const analysis = await analyzeContentWithPerplexity(promptApiKey, textChunk);
 
     return res.status(200).json({ success: true, analysis });
   } catch (error) {
