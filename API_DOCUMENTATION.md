@@ -64,29 +64,51 @@ Content-Type: application/json
 {
   "bookTitle": "Война и мир",
   "author": "Лев Толстой",
-  "textChunk": "Он стоял на балконе, глядя на закат. Солнце медленно опускалось за горизонт, окрашивая небо в багровые и золотые тона. В воздухе витала тишина, нарушаемая лишь далеким пением птиц."
+  "textChunk": "Андрей Болконский смотрел на высокое небо Аустерлица...",
+  "styleKey": "pencil_sketch", 
+  "prevSceneDescription": "Описание предыдущей сцены (опционально)",
+  "audience": "adults"
 }
 ```
 
 **Параметры:**
-- `bookTitle` (string, обязательное, max 100 символов) - Название книги
-- `author` (string, обязательное, max 50 символов) - Автор книги
-- `textChunk` (string, обязательное, max 500 слов) - Фрагмент текста для иллюстрации
+- `bookTitle` (string, обязательное) - Название книги (max 100 символов)
+- `author` (string, обязательное) - Автор книги (max 50 символов)
+- `textChunk` (string, обязательное) - Фрагмент текста для иллюстрации (до 500 слов)
+- `styleKey` (string, опциональное) - Ключ стиля. По умолчанию `standard`.
+- `prevSceneDescription` (string, опциональное) - Контекст предыдущей сцены (max 500 символов)
+- `audience` (string, опциональное) - Целевая аудитория (`adults`, `children`, `teens`)
+
+**Доступные стили (`styleKey`):**
+- `standard` — Стандарт (кинематографичный)
+- `pencil_sketch` — Карандаш (ч/б скетч)
+- `soviet_cartoon` — Советские мультики
+- `renaissance` — Ренессанс (живопись маслом)
+- `watercolor_storybook` — Акварельная сказка
+- `comic` — Комикс
+- `anime` — Аниме
+- `dark_fantasy` — Тёмное фэнтези
+- `retro_vintage` — Ретро книжка
+- `engraved_classic` — Гравюра
+- `soviet_poster` — Советские плакаты
+- `us_50s_pinup` — Реклама 50-х (pin-up)
 
 #### Успешный ответ (200 OK)
 
 ```json
 {
   "success": true,
-  "imageUrl": "https://cdn.perplexity.ai/images/abc123.jpg",
-  "promptUsed": "A detailed artistic illustration of a person standing on a balcony at sunset, with the sky painted in crimson and golden tones, peaceful atmosphere with distant bird songs"
+  "imageUrl": "https://...",
+  "promptUsed": "...",
+  "appliedStyleKey": "pencil_sketch"
 }
 ```
 
 **Поля ответа:**
-- `success` (boolean) - Успешность операции (всегда `true` при 200)
+- `success` (boolean) - Успешность операции
 - `imageUrl` (string) - URL сгенерированного изображения
-- `promptUsed` (string) - Промпт, использованный для генерации (для отладки)
+- `promptUsed` (string) - Промпт, использованный для генерации
+- `appliedStyleKey` (string) - Фактически примененный ключ стиля
 
 #### Ошибки
 
