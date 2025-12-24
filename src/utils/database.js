@@ -51,6 +51,13 @@ export async function initDatabase() {
       )
     `);
 
+    // Проверяем наличие колонки style_key в illustrations
+    const [columns] = await connection.query("SHOW COLUMNS FROM illustrations LIKE 'style_key'");
+    if (columns.length === 0) {
+      console.log('Adding style_key column to illustrations table...');
+      await connection.query('ALTER TABLE illustrations ADD COLUMN style_key VARCHAR(50) DEFAULT "standard" AFTER prompt');
+    }
+
     // Таблица пользователей
     await connection.query(`
       CREATE TABLE IF NOT EXISTS users (
