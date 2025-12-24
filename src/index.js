@@ -87,28 +87,16 @@ app.listen(PORT, async () => {
   }
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 
-  if (!process.env.GEMINI_API_KEY) {
-    console.warn('⚠️  WARNING: GEMINI_API_KEY (OpenRouter key) is not set!');
+  if (!process.env.PERPLEXITY_API_KEY) {
+    console.warn('⚠️  WARNING: PERPLEXITY_API_KEY is not set!');
   }
 
   if (!process.env.LAOZHANG_API_KEY && !process.env.LAOZHAN_API_KEY) {
     console.warn('⚠️  WARNING: LAOZHANG_API_KEY or LAOZHAN_API_KEY is not set!');
   }
 
-  if (!process.env.PERPLEXITY_API_KEY) {
-    console.warn('⚠️  WARNING: PERPLEXITY_API_KEY is not set!');
-  }
-
   if (!process.env.GETIMG_API_KEY) {
     console.warn('⚠️  WARNING: GETIMG_API_KEY is not set!');
-  }
-
-  if (!process.env.GIGACHAT_AUTH_KEY) {
-    console.warn('⚠️  WARNING: GIGACHAT_AUTH_KEY is not set!');
-  }
-
-  if (!process.env.GIGACHAT_CLIENT_ID) {
-    console.warn('⚠️  WARNING: GIGACHAT_CLIENT_ID is not set!');
   }
 
   if (!process.env.GEN_API_KEY) {
