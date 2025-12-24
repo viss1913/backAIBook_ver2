@@ -14,8 +14,6 @@ const TIMEOUT = 30000; // 30 секунд
 // В production лучше использовать Redis или БД
 const genApiRequests = new Map(); // request_id -> { promise, resolve, reject }
 
-const genApiRequests = new Map(); // request_id -> { promise, resolve, reject }
-
 /**
  * Создает клиент axios с настройками для OpenRouter API
  */
