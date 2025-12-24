@@ -286,6 +286,84 @@ export async function analyzeContentWithPerplexity(apiKey, textChunk) {
   }
 }
 
+/**
+ * Получает изображения через Perplexity API на основе текстового запроса
+ * @param {string} apiKey - API ключ Perplexity
+ * @param {string} query - Текстовый запрос для поиска изображений
+ * @param {Object} options - Дополнительные опции
+ * @param {string[]} options.imageFormatFilter - Фильтр по форматам изображений (jpeg, png, webp, gif, svg, bmp)
+ * @param {string[]} options.imageDomainFilter - Фильтр по доменам (например, ["-gettyimages.com"] для исключения)
+ * @returns {Promise<{images: Array, textResponse: string, citations: Array}>}
+ */
+export async function getImagesFromPerplexity(apiKey, query, options = {}) {
+  console.log('=== getImagesFromPerplexity ===');
+  console.log('Query:', query);
+
+  const client = createPerplexityClient(apiKey);
+
+  const requestData = {
+    model: 'sonar',
+    return_images: true,
+    messages: [
+      {
+        role: 'user',
+        content: query
+      }
+    ]
+  };
+
+  // Добавляем фильтры, если они указаны
+  if (options.imageFormatFilter && options.imageFormatFilter.length > 0) {
+    requestData.image_format_filter = options.imageFormatFilter;
+  }
+
+  if (options.imageDomainFilter && options.imageDomainFilter.length > 0) {
+    requestData.image_domain_filter = options.imageDomainFilter;
+  }
+
+  try {
+    console.log('Sending request to Perplexity API...');
+    const response = await client.post('', requestData);
+
+    console.log('Perplexity API response received');
+
+    const images = response.data?.images || [];
+    const textResponse = response.data?.choices?.[0]?.message?.content || '';
+    const citations = response.data?.citations || [];
+    const searchResults = response.data?.search_results || [];
+
+    console.log(`Found ${images.length} images`);
+
+    return {
+      images: images.map(img => ({
+        imageUrl: img.image_url,
+        originUrl: img.origin_url,
+        title: img.title,
+        width: img.width,
+        height: img.height
+      })),
+      textResponse,
+      citations,
+      searchResults
+    };
+  } catch (error) {
+    console.error('Perplexity API error:', error.message);
+    console.error('Error status:', error.response?.status);
+    console.error('Error data:', error.response?.data);
+
+    if (error.response?.status === 429) {
+      throw new Error('Rate limit exceeded. Please try again later.');
+    }
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      throw new Error('Invalid Perplexity API key');
+    }
+    if (error.response?.status === 400) {
+      const errorMessage = error.response.data?.error?.message || error.message;
+      throw new Error(`Perplexity API validation error: ${errorMessage}`);
+    }
+    throw new Error(`Perplexity API error: ${error.message}`);
+  }
+}
 
 /**
  * Создает клиент axios для GetImg API
