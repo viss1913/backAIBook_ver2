@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import imageRoutes from './routes/image.js';
 import bookRoutes from './routes/bookRoutes.js';
+import chatRoutes from './routes/chatRoutes.js';
 import { initDatabase } from './utils/database.js';
 import fs from 'fs';
 import path from 'path';
@@ -55,6 +56,7 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api', imageRoutes);
 app.use('/api/books', bookRoutes);
+app.use('/api/chat', chatRoutes);
 
 // 404 handler
 app.use((req, res) => {
