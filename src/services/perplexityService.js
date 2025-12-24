@@ -825,7 +825,9 @@ async function pollGenApiResult(apiKey, requestId, maxAttempts = 60, intervalMs 
  */
 async function generateImageWithGenApi(apiKey, prompt, callbackUrl, options = {}) {
   console.log('=== generateImageWithGenApi ===');
-  console.log('Prompt:', prompt.substring(0, 100) + '...');
+  console.log('Full Prompt length:', prompt.length);
+  console.log('Prompt Start:', prompt.substring(0, 100) + '...');
+  console.log('Prompt End (style):', '...' + prompt.substring(prompt.length - 100));
   console.log('Используем long polling вместо callback');
 
   const client = createGenApiClient(apiKey);
@@ -909,6 +911,8 @@ export async function generateImageFromTextWithGenApi(openRouterApiKey, genApiKe
 
     // Объединяем промпт со стилем
     const finalPrompt = `${imagePrompt.trim()}${styleSuffix ? ', ' + styleSuffix : ''}`;
+    console.log('DEBUG: Generated finalPrompt for Gen-API (length:', finalPrompt.length, ')');
+    console.log('DEBUG: Style suffix added:', styleSuffix || 'none');
 
     // Шаг 2: Формируем callback URL
     const callbackUrl = `${callbackBaseUrl}/api/gen-api-callback`;
