@@ -2,12 +2,31 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import imageRoutes from './routes/image.js';
+import bookRoutes from './routes/bookRoutes.js';
+import { initDatabase } from './utils/database.js';
+import fs from 'fs';
+import path from 'path';
 
 // Загрузка переменных окружения
 dotenv.config();
 
+process.on('uncaughtException', (err) => {
+  console.error('CRITICAL UNCAUGHT EXCEPTION:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('UNHANDLED REJECTION at:', promise, 'reason:', reason);
+});
+
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Убедимся что папка для скачивания существует
+const downloadsDir = path.resolve('src/downloads');
+if (!fs.existsSync(downloadsDir)) {
+  fs.mkdirSync(downloadsDir, { recursive: true });
+}
 
 // Middleware
 app.use(cors({
@@ -35,6 +54,7 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api', imageRoutes);
+app.use('/api/books', bookRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -54,38 +74,45 @@ app.use((err, req, res, next) => {
 });
 
 // Запуск сервера
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`);
+
+  // Инициализация БД
+  try {
+    await initDatabase();
+  } catch (err) {
+    console.error('Failed to initialize database:', err);
+  }
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  
+
   if (!process.env.GEMINI_API_KEY) {
     console.warn('⚠️  WARNING: GEMINI_API_KEY (OpenRouter key) is not set!');
   }
-  
+
   if (!process.env.LAOZHANG_API_KEY && !process.env.LAOZHAN_API_KEY) {
     console.warn('⚠️  WARNING: LAOZHANG_API_KEY or LAOZHAN_API_KEY is not set!');
   }
-  
+
   if (!process.env.PERPLEXITY_API_KEY) {
     console.warn('⚠️  WARNING: PERPLEXITY_API_KEY is not set!');
   }
-  
+
   if (!process.env.GETIMG_API_KEY) {
     console.warn('⚠️  WARNING: GETIMG_API_KEY is not set!');
   }
-  
+
   if (!process.env.GIGACHAT_AUTH_KEY) {
     console.warn('⚠️  WARNING: GIGACHAT_AUTH_KEY is not set!');
   }
-  
+
   if (!process.env.GIGACHAT_CLIENT_ID) {
     console.warn('⚠️  WARNING: GIGACHAT_CLIENT_ID is not set!');
   }
-  
+
   if (!process.env.GEN_API_KEY) {
     console.warn('⚠️  WARNING: GEN_API_KEY is not set!');
   }
-  
+
   if (!process.env.RAILWAY_URL) {
     console.warn('⚠️  WARNING: RAILWAY_URL is not set! (needed for Gen-API callbacks)');
   }
