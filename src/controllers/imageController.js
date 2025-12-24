@@ -114,8 +114,15 @@ export async function generateImage(req, res) {
     // Perplexity API ключ (используется для генерации промптов)
     const promptApiKey = process.env.PERPLEXITY_API_KEY;
 
-    // Определяем провайдера из query параметра (по умолчанию 'laozhang')
-    const provider = req.query.provider || 'laozhang';
+    // Определяем провайдера из query параметра
+    let provider = req.query.provider || 'laozhang';
+
+    // Hard check: forbid obsolete providers
+    if (provider === 'gigachat' || provider === 'gemini') {
+      console.warn(`⚠️  Obsolete provider requested: ${provider}. Falling back to 'laozhang'.`);
+      provider = 'laozhang';
+    }
+
     console.log('Using provider:', provider);
 
     if (!promptApiKey) {
