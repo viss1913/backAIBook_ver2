@@ -915,7 +915,7 @@ export async function generateImageFromTextWithGenApi(openRouterApiKey, genApiKe
 
     return {
       imageUrl: result.imageUrl,
-      promptUsed: imagePrompt
+      promptUsed: finalPrompt
     };
   } catch (error) {
     throw error;
