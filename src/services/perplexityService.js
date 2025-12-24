@@ -373,12 +373,12 @@ export async function generateImageFromText(openRouterApiKey, laoZhangApiKey, bo
     // Шаг 1: Генерируем промпт для изображения через OpenRouter (Gemini модель)
     const imagePrompt = await generatePromptForImage(openRouterApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
 
-    // Шаг 2: Генерируем изображение через LaoZhang API
-    const imageUrl = await generateImage(laoZhangApiKey, imagePrompt, bookTitle, author, imageModel, styleSuffix);
+    // Будем возвращать полный промпт со стилем для отладки
+    const finalPrompt = `Человек читает книгу "${bookTitle}" автора ${author}. ${imagePrompt.trim()}${styleSuffix ? ', ' + styleSuffix : ''}`;
 
     return {
       imageUrl,
-      promptUsed: imagePrompt
+      promptUsed: finalPrompt
     };
   } catch (error) {
     throw error;
@@ -409,7 +409,7 @@ export async function generateImageFromTextWithGetImg(openRouterApiKey, getImgAp
 
     return {
       imageUrl,
-      promptUsed: imagePrompt
+      promptUsed: finalPrompt
     };
   } catch (error) {
     throw error;
@@ -602,7 +602,7 @@ export async function generateImageFromTextWithGigaChat(openRouterApiKey, gigach
 
     return {
       imageUrl,
-      promptUsed: imagePrompt
+      promptUsed: russianPrompt
     };
   } catch (error) {
     throw error;
