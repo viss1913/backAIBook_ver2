@@ -58,10 +58,14 @@ export async function generatePromptForImage(apiKey, bookTitle, author, textChun
   const systemPrompt = 'You are an expert at creating detailed, artistic prompts for AI image generators. Your task is to analyze book text and create professional image generation prompts in English.';
 
   try {
-    console.log('Sending request to OpenRouter API...');
-    // OpenRouter использует OpenAI-совместимый формат
-    // Модель: google/gemini-2.5-flash (боевая модель)
-    const modelName = 'google/gemini-2.5-flash';
+    const modelName = 'google/gemini-2.0-flash-001';
+    console.log('Using OpenRouter model:', modelName);
+
+    console.log('Payload for OpenRouter:', JSON.stringify({
+      model: modelName,
+      messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }]
+    }));
+
     const response = await client.post('', {
       model: modelName,
       messages: [
@@ -133,6 +137,7 @@ async function generateImage(laoZhangApiKey, prompt, bookTitle, author, model = 
   try {
     // Добавляем контекст и стиль
     const imagePrompt = `Человек читает книгу "${bookTitle}" автора ${author}. ${prompt.trim()}${styleSuffix ? ', ' + styleSuffix : ''}`;
+    console.log('Final image prompt for LaoZhang:', imagePrompt);
 
     const response = await client.post('', {
       model: model,
@@ -587,6 +592,7 @@ export async function generateImageFromTextWithGigaChat(openRouterApiKey, gigach
 
     // Шаг 3: Формируем запрос на русском для GigaChat + стиль
     const russianPrompt = `Нарисуй ${imagePrompt.trim()}${styleSuffix ? '. Стиль: ' + styleSuffix : ''}`;
+    console.log('GigaChat Prompt:', russianPrompt);
 
     // Шаг 4: Генерируем изображение через GigaChat
     const fileId = await generateImageWithGigaChat(accessToken, russianPrompt, gigachatClientId);
