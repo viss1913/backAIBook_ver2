@@ -52,7 +52,7 @@ function getAppliedStyle(styleKey) {
     return fallback;
   }
 
-  const match = styles.find(s => s.key === styleKey);
+  const match = styles.find(s => s.key === styleKey?.trim());
   if (match) {
     console.log('DEBUG: Found style match:', match.key);
   } else {
@@ -81,8 +81,9 @@ export async function generateImage(req, res) {
       });
     }
 
-    const { bookTitle, author, textChunk, prevSceneDescription, audience, styleKey } = validation.value;
-    const appliedStyle = getAppliedStyle(styleKey);
+    const { bookTitle, author, textChunk, prevSceneDescription, audience, styleKey, style_key } = validation.value;
+    const finalStyleKey = styleKey || style_key;
+    const appliedStyle = getAppliedStyle(finalStyleKey);
     console.log('Validation passed. Style:', appliedStyle.key);
     console.log('Validation passed. Book:', bookTitle, 'Author:', author);
 
