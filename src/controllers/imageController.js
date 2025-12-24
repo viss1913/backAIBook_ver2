@@ -1,5 +1,5 @@
 import { validateGenerateImageRequest, validateGetImagesFromPerplexityRequest } from '../validators/imageValidator.js';
-import { generateImageFromText, generateImageFromTextWithGetImg, generateImageFromTextWithGigaChat, generateImageFromTextWithGenApi, getImagesFromPerplexity, generatePromptWithPerplexity } from '../services/perplexityService.js';
+import { generateImageFromText, generateImageFromTextWithGetImg, generateImageFromTextWithGenApi, getImagesFromPerplexity, generatePromptWithPerplexity } from '../services/perplexityService.js';
 import { findBookByHash, saveBook, saveIllustration, getBookIllustrations, initDatabase } from '../utils/database.js';
 import { analyzeContentWithGemini, parseFB2 } from '../services/fb2Service.js';
 import { generateCoverPromptTemplate } from '../utils/promptTemplate.js';
@@ -130,12 +130,7 @@ export async function generateImage(req, res) {
     const styleSuffix = appliedStyle.promptSuffix;
     console.log(`Applied style: ${appliedStyle.key}, suffix: ${styleSuffix}`);
 
-    if (provider === 'gigachat') {
-      const gigachatAuthKey = process.env.GIGACHAT_AUTH_KEY;
-      const gigachatClientId = process.env.GIGACHAT_CLIENT_ID;
-      const gigachatScope = process.env.GIGACHAT_SCOPE || 'GIGACHAT_API_PERS';
-      result = await generateImageFromTextWithGigaChat(promptApiKey, gigachatAuthKey, gigachatClientId, bookTitle, author, textChunk, gigachatScope, prevSceneDescription || null, audience || 'adults', styleSuffix);
-    } else if (provider === 'getimg') {
+    if (provider === 'getimg') {
       const getImgApiKey = process.env.GETIMG_API_KEY;
       const imageModel = req.query.model || 'seedream-v4';
       const options = {};

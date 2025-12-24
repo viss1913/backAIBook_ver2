@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { saveChatMessage, getChatContext, updateChatSummary, getMessageCount } from '../utils/database.js';
 
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const GEMINI_MODEL = 'google/gemini-2.0-flash-001';
+const PERPLEXITY_URL = 'https://api.perplexity.ai/chat/completions';
+const CHAT_MODEL = 'sonar'; // Используем sonar для чата
 
 /**
  * Генерирует потоковый ответ от ИИ с учетом истории и саммари.
@@ -26,7 +26,7 @@ export async function streamChatResponse(chatId, userMessage, onToken) {
     Долгосрочная память: ${summary || 'Пока пуста.'} `;
 
     const payload = {
-        model: GEMINI_MODEL,
+        model: CHAT_MODEL,
         stream: true,
         messages: [
             { role: 'system', content: systemPrompt },
@@ -39,10 +39,10 @@ export async function streamChatResponse(chatId, userMessage, onToken) {
     try {
         const response = await axios({
             method: 'POST',
-            url: OPENROUTER_URL,
+            url: PERPLEXITY_URL,
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.GEMINI_API_KEY}`
+                'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`
             },
             data: payload,
             responseType: 'stream'
@@ -53,7 +53,7 @@ export async function streamChatResponse(chatId, userMessage, onToken) {
                 const lines = chunk.toString().split('\n').filter(line => line.trim() !== '');
                 for (const line of lines) {
                     const message = line.replace(/^data: /, '');
-                    if (message === '[DONE]') break;
+                    if (message === '[DONE]' || message.trim() === '') continue;
                     try {
                         const parsed = JSON.parse(message);
                         const token = parsed.choices[0]?.delta?.content || '';
@@ -103,11 +103,11 @@ async function triggerSummarization(chatId, oldSummary, history) {
     Выдай только обновленный краткий текст профиля пользователя.`;
 
     try {
-        const response = await axios.post(OPENROUTER_URL, {
-            model: GEMINI_MODEL,
+        const response = await axios.post(PERPLEXITY_URL, {
+            model: CHAT_MODEL,
             messages: [{ role: 'user', content: prompt }]
         }, {
-            headers: { 'Authorization': `Bearer ${process.env.GEMINI_API_KEY}` }
+            headers: { 'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}` }
         });
 
         const newSummary = response.data.choices[0]?.message?.content;
