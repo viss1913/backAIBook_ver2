@@ -53,6 +53,7 @@ const generateImageSchema = Joi.object({
 
   styleKey: Joi.string()
     .max(50)
+    .allow(null, '')
     .optional()
     .messages({
       'string.max': 'styleKey must not exceed 50 characters'
