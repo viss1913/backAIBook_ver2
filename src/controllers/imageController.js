@@ -10,21 +10,54 @@ import path from 'path';
 // Загрузка стилей при старте
 let imageStylesConfig = { imageStyles: [] };
 try {
-  const configPath = path.resolve('src/config/imageStyles.json');
-  if (fs.existsSync(configPath)) {
-    imageStylesConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    console.log(`Loaded ${imageStylesConfig.imageStyles.length} image styles.`);
+  // Пробуем разные варианты путей
+  const possiblePaths = [
+    path.resolve('src/config/imageStyles.json'),
+    path.join(process.cwd(), 'src/config/imageStyles.json'),
+    path.join(path.dirname(new URL(import.meta.url).pathname), '../config/imageStyles.json')
+  ];
+
+  let configPath = possiblePaths[0];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      configPath = p;
+      break;
+    }
   }
+
+  console.log(`Trying to load styles from: ${configPath}`);
+  imageStylesConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  console.log(`Successfully loaded ${imageStylesConfig.imageStyles.length} image styles.`);
 } catch (error) {
-  console.error('Error loading image styles:', error.message);
+  console.error('CRITICAL: Error loading image styles:', error.message);
+  // Хардкодный список на крайний случай, чтобы не падать
+  imageStylesConfig = {
+    imageStyles: [
+      { key: 'standard', promptSuffix: 'cinematic digital illustration' },
+      { key: 'pencil_sketch', promptSuffix: 'soft graphite pencil sketch, black and white' },
+      { key: 'soviet_cartoon', promptSuffix: '1970s Soviet cartoon style' },
+      { key: 'anime', promptSuffix: 'anime style illustration' }
+    ]
+  };
 }
 
 function getAppliedStyle(styleKey) {
   const styles = imageStylesConfig.imageStyles;
+  console.log(`DEBUG: Searching for styleKey: "${styleKey}" in ${styles.length} styles`);
+
   const fallback = styles.find(s => s.key === 'standard') || { key: 'standard', promptSuffix: 'cinematic digital illustration' };
 
-  if (!styleKey) return fallback;
+  if (!styleKey) {
+    console.log('DEBUG: No styleKey provided, using fallback');
+    return fallback;
+  }
+
   const match = styles.find(s => s.key === styleKey);
+  if (match) {
+    console.log('DEBUG: Found style match:', match.key);
+  } else {
+    console.warn(`DEBUG: No match found for styleKey: "${styleKey}", using fallback`);
+  }
   return match || fallback;
 }
 
