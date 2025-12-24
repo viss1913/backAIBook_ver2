@@ -49,10 +49,14 @@ export function generateAnalysisPromptTemplate(textChunk) {
  * @param {string} audience - Целевая аудитория: "adults", "children", "teens" (по умолчанию "adults")
  * @returns {string} Промпт для генерации изображения
  */
-export function generateImagePrompt(bookTitle, author, textChunk, prevSceneDescription = null, audience = 'adults') {
+export function generateImagePrompt(bookTitle, author, textChunk, prevSceneDescription = null, audience = 'adults', styleDescription = null) {
   const prevScenePart = prevSceneDescription
     ? `- Previous scene (for character consistency): "${prevSceneDescription}"`
     : '- Previous scene: not available (omit this section)';
+
+  const styleInstruction = styleDescription
+    ? `3. Art style: MUST BE EXACTLY "${styleDescription}". Do not invent a different style.`
+    : '3. Art style: matched to detected genre ("Tolkien-style fantasy", "noir detective", "19th century realism").';
 
   return `Create a detailed prompt IN ENGLISH for an AI image generator (DALL-E 3/Midjourney/Flux) to illustrate a key scene from the book "${bookTitle}" by "${author}".
   
@@ -67,10 +71,10 @@ export function generateImagePrompt(bookTitle, author, textChunk, prevSceneDescr
   The generated prompt MUST include:
   1. Key scene elements: main characters, actions, setting (extract from page text).
   2. Atmosphere: emotions, time of day, weather (from text).
-  3. Art style: matched to detected genre ("Tolkien-style fantasy", "noir detective", "19th century realism").
+  ${styleInstruction}
   4. Lighting & composition: dramatic/soft lighting, vertical framing, dynamic angle.
   5. Negative prompt section: "blurry, modern elements, distorted faces, low quality".
   
   Output ONLY the final English prompt (100-200 words) in natural artist instruction style. Example format:
-  "A cinematic vertical illustration of [scene description from book]. Key elements: [list]. Atmosphere: [mood]. Style: [genre-matched style]. Lighting: [details], 9:16 aspect ratio, highly detailed."`;
+  "A cinematic vertical illustration of [scene description from book]. Key elements: [list]. Atmosphere: [mood]. Style: [requested style]. Lighting: [details], 9:16 aspect ratio, highly detailed."`;
 }

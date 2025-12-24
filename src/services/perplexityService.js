@@ -35,7 +35,7 @@ function createOpenRouterClient(apiKey) {
  * @param {string} textChunk - Фрагмент текста
  * @returns {Promise<string>} Сгенерированный промпт
  */
-export async function generatePromptForImage(apiKey, bookTitle, author, textChunk, prevSceneDescription = null, audience = 'adults') {
+export async function generatePromptForImage(apiKey, bookTitle, author, textChunk, prevSceneDescription = null, audience = 'adults', styleDescription = null) {
   console.log('=== generatePromptForImage (OpenRouter/Gemini) ===');
   console.log('API Key exists:', !!apiKey);
   console.log('API Key starts with:', apiKey ? apiKey.substring(0, 10) + '...' : 'N/A');
@@ -44,7 +44,7 @@ export async function generatePromptForImage(apiKey, bookTitle, author, textChun
   console.log('Previous scene provided:', !!prevSceneDescription);
 
   const client = createOpenRouterClient(apiKey);
-  const userPrompt = generateImagePrompt(bookTitle, author, textChunk, prevSceneDescription, audience);
+  const userPrompt = generateImagePrompt(bookTitle, author, textChunk, prevSceneDescription, audience, styleDescription);
   const systemPrompt = 'You are an expert at creating detailed, artistic prompts for AI image generators. Your task is to analyze book text and create professional image generation prompts in English.';
 
   try {
@@ -126,7 +126,8 @@ async function generateImage(laoZhangApiKey, prompt, bookTitle, author, model = 
 
   try {
     // Добавляем контекст и стиль
-    const imagePrompt = `Человек читает книгу "${bookTitle}" автора ${author}. ${prompt.trim()}${styleSuffix ? ', ' + styleSuffix : ''}`;
+    // Добавляем контекст и стиль (стиль в начале для приоритета)
+    const imagePrompt = `${styleSuffix ? styleSuffix + '. ' : ''}Человек читает книгу "${bookTitle}" автора ${author}. ${prompt.trim()}`;
     console.log('Final image prompt for LaoZhang:', imagePrompt);
 
     const response = await client.post('', {
@@ -191,12 +192,12 @@ function createPerplexityClient(apiKey) {
  * @param {string} textChunk - Фрагмент текста
  * @returns {Promise<string>} Сгенерированный промпт
  */
-export async function generatePromptWithPerplexity(apiKey, bookTitle, author, textChunk, prevSceneDescription = null, audience = 'adults') {
+export async function generatePromptWithPerplexity(apiKey, bookTitle, author, textChunk, prevSceneDescription = null, audience = 'adults', styleDescription = null) {
   console.log('=== generatePromptWithPerplexity ===');
   console.log('API Key exists:', !!apiKey);
 
   const client = createPerplexityClient(apiKey);
-  const userPrompt = generateImagePrompt(bookTitle, author, textChunk, prevSceneDescription, audience);
+  const userPrompt = generateImagePrompt(bookTitle, author, textChunk, prevSceneDescription, audience, styleDescription);
   const systemPrompt = 'You are an expert at creating detailed, artistic prompts for AI image generators. Your task is to analyze book text and create professional image generation prompts in English.';
 
   try {
@@ -453,14 +454,14 @@ async function generateImageWithGetImg(apiKey, prompt, model = 'seedream-v4', op
 
 export async function generateImageFromText(promptApiKey, laoZhangApiKey, bookTitle, author, textChunk, imageModel = 'flux-kontext-pro', prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
   try {
-    // Шаг 1: Генерируем промпт для изображения через Perplexity
-    const imagePrompt = await generatePromptWithPerplexity(promptApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
+    // Шаг 1: Генерируем промпт для изображения ("styleSuffix" используем как описание стиля для генератора промптов)
+    const imagePrompt = await generatePromptWithPerplexity(promptApiKey, bookTitle, author, textChunk, prevSceneDescription, audience, styleSuffix);
 
     // Шаг 2: Генерируем изображение через LaoZhang API
     const imageUrl = await generateImage(laoZhangApiKey, imagePrompt, bookTitle, author, imageModel, styleSuffix);
 
     // Будем возвращать полный промпт со стилем для отладки
-    const finalPrompt = `Человек читает книгу "${bookTitle}" автора ${author}. ${imagePrompt.trim()}${styleSuffix ? ', ' + styleSuffix : ''}`;
+    const finalPrompt = `${styleSuffix ? styleSuffix + '. ' : ''}Человек читает книгу "${bookTitle}" автора ${author}. ${imagePrompt.trim()}`;
 
     return {
       imageUrl,
@@ -485,10 +486,10 @@ export async function generateImageFromText(promptApiKey, laoZhangApiKey, bookTi
 export async function generateImageFromTextWithGetImg(promptApiKey, getImgApiKey, bookTitle, author, textChunk, imageModel = 'seedream-v4', options = {}, prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
   try {
     // Шаг 1: Генерируем промпт для изображения через Perplexity
-    const imagePrompt = await generatePromptWithPerplexity(promptApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
+    const imagePrompt = await generatePromptWithPerplexity(promptApiKey, bookTitle, author, textChunk, prevSceneDescription, audience, styleSuffix);
 
-    // Объединяем промпт со стилем
-    const finalPrompt = `${imagePrompt.trim()}${styleSuffix ? ', ' + styleSuffix : ''}`;
+    // Объединяем промпт со стилем (стиль в начале)
+    const finalPrompt = `${styleSuffix ? styleSuffix + '. ' : ''}${imagePrompt.trim()}`;
 
     // Шаг 2: Генерируем изображение через GetImg API
     const imageUrl = await generateImageWithGetImg(getImgApiKey, finalPrompt, imageModel, options);
@@ -679,10 +680,10 @@ async function generateImageWithGenApi(apiKey, prompt, options = {}) {
 export async function generateImageFromTextWithGenApi(promptApiKey, genApiKey, bookTitle, author, textChunk, options = {}, prevSceneDescription = null, audience = 'adults', styleSuffix = '') {
   try {
     // Шаг 1: Генерируем промпт для изображения через Perplexity
-    const imagePrompt = await generatePromptWithPerplexity(promptApiKey, bookTitle, author, textChunk, prevSceneDescription, audience);
+    const imagePrompt = await generatePromptWithPerplexity(promptApiKey, bookTitle, author, textChunk, prevSceneDescription, audience, styleSuffix);
 
-    // Объединяем промпт со стилем
-    const finalPrompt = `${imagePrompt.trim()}${styleSuffix ? ', ' + styleSuffix : ''}`;
+    // Объединяем промпт со стилем (стиль в начале)
+    const finalPrompt = `${styleSuffix ? styleSuffix + '. ' : ''}${imagePrompt.trim()}`;
     console.log('DEBUG: Generated finalPrompt for Gen-API (length:', finalPrompt.length, ')');
     console.log('DEBUG: Style suffix added:', styleSuffix || 'none');
 

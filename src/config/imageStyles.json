@@ -10,7 +10,7 @@
             "key": "pencil_sketch",
             "title": "Карандаш",
             "description": "Черно-белый графитовый скетч, как рисунки карандашом в блокноте.",
-            "promptSuffix": "soft graphite pencil sketch, hand-drawn lines, black and white, subtle paper texture, no color, no digital painting, no 3d, no text"
+            "promptSuffix": "(b&w pencil sketch style:1.5), soft graphite pencil sketch, hand-drawn lines, monochrome, subtle paper texture, no color, no digital painting, no 3d, no text, rough edges, sketchbook aesthetic"
         },
         {
             "key": "soviet_cartoon",
