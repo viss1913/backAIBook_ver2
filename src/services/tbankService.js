@@ -38,9 +38,14 @@ function generateToken(params, providedPassword) {
   // Добавляем пароль к параметрам для сортировки
   const data = { ...params, Password: password };
 
-  // Сортируем ключи и исключаем сам Token
+  // Сортируем ключи и исключаем сам Token, а также объекты/массивы (Receipt, Data)
   const keys = Object.keys(data)
-    .filter(key => key !== 'Token' && key !== 'token')
+    .filter(key =>
+      key !== 'Token' &&
+      key !== 'token' &&
+      key !== 'Receipt' &&
+      key !== 'Data'
+    )
     .sort();
 
   // Конкатенируем ТОЛЬКО значения (V2 стандарт)
