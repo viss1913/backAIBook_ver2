@@ -29,21 +29,24 @@ if (!TBANK_TERMINAL_KEY || !TBANK_PASSWORD) {
  * Генерация подписи для запроса Т-банк API
  * Согласно документации: https://developer.tbank.ru/eacq/api
  * @param {Object} params - Параметры запроса
+ * @param {string} [providedPassword] - Пароль (опционально)
  * @returns {string} - Подпись (Token)
  */
-function generateToken(params) {
-  // Формируем строку для подписи (все параметры кроме Token, отсортированные по алфавиту)
-  const sortedParams = Object.keys(params)
+function generateToken(params, providedPassword) {
+  const password = providedPassword || (TBANK_PASSWORD ? TBANK_PASSWORD.trim() : '');
+
+  // Добавляем пароль к параметрам для сортировки
+  const data = { ...params, Password: password };
+
+  // Сортируем ключи и исключаем сам Token
+  const keys = Object.keys(data)
     .filter(key => key !== 'Token' && key !== 'token')
-    .sort()
-    .map(key => `${key}=${params[key]}`)
-    .join('&');
+    .sort();
 
-  // Добавляем пароль
-  const stringToSign = `${sortedParams}&Password=${TBANK_PASSWORD}`;
+  // Конкатенируем ТОЛЬКО значения (V2 стандарт)
+  const stringToSign = keys.map(key => data[key]).join('');
 
-  // Генерируем SHA256 хэш (или MD5, в зависимости от версии API)
-  // По умолчанию используем SHA256
+  // Генерируем SHA256
   return crypto.createHash('sha256').update(stringToSign).digest('hex');
 }
 
@@ -89,28 +92,8 @@ export async function createTbankPayment(paymentData) {
     ...(userPhone && { Phone: userPhone })
   };
 
-  // Генерируем Token (подпись) - передаем пароль явно
-  // Note: generateToken relies on the global TBANK_PASSWORD currently. 
-  // Let's modify generateToken or handle it here locally to be safe if we switched to local vars above.
-  // Ideally, generateToken should take password as arg, but for minimal invasive change let's rely on global if set, 
-  // or re-implement token gen logic locally if needed. 
-  // Actually, let's fix generateToken usage by temporarily overriding or creating a local helper if we want to support the demo fallback properly without changing global const logic too much.
-  // BUT the user SAID they added keys, so global `TBANK_PASSWORD` should be good.
-
-  // Let's update the generateToken function slightly in a separate tool call if needed, 
-  // but for now, assuming TBANK_PASSWORD is set correctly from env as per user input.
-  // If we fell back to demo strings above locally, generateToken might fail if it uses the empty global.
-  // Let's patch generateToken logic inline here for safety or update the global var usage.
-
-  // Re-implementing token generation locally to be safe with the `password` variable selected above
-  const sortedParams = Object.keys(params)
-    .filter(key => key !== 'Token' && key !== 'token')
-    .sort()
-    .map(key => `${key}=${params[key]}`)
-    .join('&');
-
-  const stringToSign = `${sortedParams}&Password=${password}`;
-  params.Token = crypto.createHash('sha256').update(stringToSign).digest('hex');
+  // Генерируем Token (подпись) с использованием триммированного пароля
+  params.Token = generateToken(params, password);
 
   try {
     // Формируем правильный URL
@@ -334,4 +317,3 @@ export function getTbankPaymentRedirectUrl(orderId, amount, description) {
 
   return `${TBANK_API_URL}/Init?${queryString}`;
 }
-
