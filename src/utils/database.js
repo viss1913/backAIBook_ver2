@@ -118,22 +118,7 @@ export async function initDatabase() {
       )
     `);
 
-    // Таблица транзакций токенов (история операций)
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS token_transactions (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
-        amount INT NOT NULL,
-        type ENUM('spend', 'earn', 'bonus', 'purchase') NOT NULL,
-        description TEXT,
-        related_payment_id INT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (related_payment_id) REFERENCES payments(id) ON DELETE SET NULL
-      )
-    `);
-
-    // Таблица платежей (для Т-банк эквайринга)
+    // Таблица платежей (для Т-банк эквайринга) - создаем ПЕРЕД token_transactions
     await connection.query(`
       CREATE TABLE IF NOT EXISTS payments (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -151,6 +136,21 @@ export async function initDatabase() {
         INDEX idx_payment_id (payment_id),
         INDEX idx_tbank_order_id (tbank_order_id),
         INDEX idx_status (status)
+      )
+    `);
+
+    // Таблица транзакций токенов (история операций) - создаем ПОСЛЕ payments
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS token_transactions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        amount INT NOT NULL,
+        type ENUM('spend', 'earn', 'bonus', 'purchase') NOT NULL,
+        description TEXT,
+        related_payment_id INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (related_payment_id) REFERENCES payments(id) ON DELETE SET NULL
       )
     `);
 
