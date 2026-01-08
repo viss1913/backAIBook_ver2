@@ -55,10 +55,24 @@ export async function createTbankPayment(paymentData) {
   const { amount, orderId, description, userEmail, userPhone } = paymentData;
 
   // Use env vars or fallback to demo ONLY ifenv is missing (legacy support, but warn)
-  const terminalKey = TBANK_TERMINAL_KEY || '1703150935625DEMO';
-  const password = TBANK_PASSWORD || 'xcbixwo8gsjibu6u';
+  // Fix: TRIM credentials to avoid whitespace issues from copy-paste
+  const envTerminalKey = TBANK_TERMINAL_KEY ? TBANK_TERMINAL_KEY.trim() : undefined;
+  const envPassword = TBANK_PASSWORD ? TBANK_PASSWORD.trim() : undefined;
 
-  if (!TBANK_TERMINAL_KEY) {
+  const terminalKey = envTerminalKey || '1703150935625DEMO';
+  const password = envPassword || 'xcbixwo8gsjibu6u';
+
+  console.log('--- Credential Debug ---');
+  console.log('Env Key Set:', !!envTerminalKey);
+  console.log('Env Pass Set:', !!envPassword);
+  console.log('Using Terminal:', terminalKey);
+  console.log('Using Password (masked):', password ? (password.substring(0, 2) + '***' + password.slice(-2)) : 'MISSING');
+
+  if (envTerminalKey && !envPassword) {
+    console.error('🚨 CRITICAL ERROR: TerminalKey is set in ENV, but Password is NOT! Using Demo password with Real Key will fail.');
+  }
+
+  if (!envTerminalKey) {
     console.warn('⚠️ Using DEMO Terminal Key because TBANK_TERMINAL_KEY is not set.');
   }
 
