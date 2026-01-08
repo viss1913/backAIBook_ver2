@@ -188,11 +188,6 @@ export async function createTbankPayment(paymentData) {
 
 /**
  * Проверка статуса платежа
- * @param {string} orderId - ID заказа
- * @returns {Promise<Object>} - Статус платежа
- */
-/**
- * Проверка статуса платежа
  * Документация: https://developer.tbank.ru/eacq/api
  */
 export async function checkTbankPaymentStatus(paymentId) {
@@ -207,18 +202,12 @@ export async function checkTbankPaymentStatus(paymentId) {
   console.log('--- Checking T-Bank Status ---');
   console.log('PaymentID (input):', paymentId);
 
-  // Conver to string to ensure consistency
-  // T-Bank PaymentId is usually a number, but can be string. 
-  // If we send it as string in JSON but T-Bank expects number, it might fail validation.
-  // Let's force it to be NUMBER if it looks like one.
+  // Conver to string to ensure consistency (API expects String(20))
   const paymentIdStr = String(paymentId);
-  const isNumeric = /^\d+$/.test(paymentIdStr);
-
-  const finalPaymentId = isNumeric ? parseInt(paymentIdStr, 10) : paymentIdStr;
 
   const params = {
     TerminalKey: envTerminalKey,
-    PaymentId: finalPaymentId
+    PaymentId: paymentIdStr
   };
 
   params.Token = generateToken(params, envPassword);
@@ -226,8 +215,29 @@ export async function checkTbankPaymentStatus(paymentId) {
   console.log('Params to GetState:', JSON.stringify(params));
 
   try {
+    // Формируем правильный URL для V2
+    let apiUrl = TBANK_API_URL;
+    // Remove trailing slash if present
+    if (apiUrl.endsWith('/')) {
+      apiUrl = apiUrl.slice(0, -1);
+    }
+    // Remove /v2/Init if present (just in case user pasted full Init URL)
+    apiUrl = apiUrl.replace(/\/v2\/Init$/, '');
+
+    // Ensure we target v2
+    if (!apiUrl.endsWith('/v2')) {
+      // If it doesn't end in /v2, check if we need to add it
+      // Assuming base is https://securepay.tinkoff.ru
+      if (!apiUrl.includes('/v2')) {
+        apiUrl = `${apiUrl}/v2`;
+      }
+    }
+
+    const requestUrl = `${apiUrl}/GetState`;
+    console.log('Using GetState URL:', requestUrl);
+
     const response = await axios.post(
-      `${TBANK_API_URL}/GetState`,
+      requestUrl,
       params,
       {
         headers: {
@@ -259,11 +269,6 @@ export async function checkTbankPaymentStatus(paymentId) {
 
 /**
  * Верификация callback от Т-банка
- * @param {Object} callbackData - Данные из callback
- * @returns {boolean} - true если подпись валидна
- */
-/**
- * Верификация callback от Т-банка
  */
 export function verifyTbankCallback(callbackData) {
   if (!TBANK_PASSWORD) {
@@ -283,11 +288,6 @@ export function verifyTbankCallback(callbackData) {
   return receivedToken.toLowerCase() === calculatedToken.toLowerCase();
 }
 
-/**
- * Обработка успешного платежа (webhook/callback)
- * @param {Object} callbackData - Данные из callback
- * @returns {Object} - Обработанные данные платежа
- */
 /**
  * Обработка callback от Т-банка
  */
@@ -327,10 +327,6 @@ export function processTbankCallback(callbackData) {
   };
 }
 
-/**
- * Получить URL для редиректа на оплату (альтернативный метод)
- * Используется если Т-банк требует редирект на их страницу оплаты
- */
 /**
  * Получить URL для редиректа на оплату (альтернативный метод)
  * Используется если нужно сформировать URL напрямую
