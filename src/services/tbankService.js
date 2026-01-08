@@ -11,10 +11,11 @@ dotenv.config();
  */
 
 // Конфигурация Т-банк API
-// Документация: https://developer.tbank.ru/eacq/api
-const TBANK_API_URL = process.env.TBANK_API_URL || 'https://securepayments.tbank.ru/api/v1';
+// Документация: https://developer.tbank.ru/eacq/api/init
+const TBANK_API_URL = process.env.TBANK_API_URL || 'https://securepay.tinkoff.ru';
 const TBANK_TERMINAL_KEY = process.env.TBANK_TERMINAL_KEY || '1703150935625DEMO'; // Тестовый терминал
 const TBANK_PASSWORD = process.env.TBANK_PASSWORD || 'xcbixwo8gsjibu6u'; // Тестовый пароль
+const TBANK_API_TOKEN = process.env.TBANK_API_TOKEN; // Bearer Token для авторизации (если используется)
 const TBANK_SUCCESS_URL = process.env.TBANK_SUCCESS_URL || `${process.env.BASE_URL || 'http://localhost:3000'}/api/payments/tbank/success`;
 const TBANK_FAILURE_URL = process.env.TBANK_FAILURE_URL || `${process.env.BASE_URL || 'http://localhost:3000'}/api/payments/tbank/failure`;
 
@@ -79,20 +80,29 @@ export async function createTbankPayment(paymentData) {
 
   try {
     console.log('=== T-bank API Request ===');
-    console.log('URL:', `${TBANK_API_URL}/Init`);
+    console.log('URL:', `${TBANK_API_URL}/v2/Init`);
     console.log('TerminalKey:', TBANK_TERMINAL_KEY);
     console.log('Params (без Token):', JSON.stringify({ ...params, Token: '[HIDDEN]' }, null, 2));
     
-    // Согласно документации Т-банк, используется POST запрос
-    // Endpoint может быть: /Init (для инициализации платежа)
+    // Согласно документации: https://developer.tbank.ru/eacq/api/init
+    // Endpoint: /v2/Init
+    // Авторизация: Bearer API Token (если TBANK_API_TOKEN указан) или через Token в теле запроса
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    };
+    
+    // Если указан API Token, используем Bearer авторизацию
+    if (TBANK_API_TOKEN) {
+      headers['Authorization'] = `Bearer ${TBANK_API_TOKEN}`;
+      console.log('Using Bearer Token authorization');
+    }
+    
     const response = await axios.post(
-      `${TBANK_API_URL}/Init`,
+      `${TBANK_API_URL}/v2/Init`,
       params,
       {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
+        headers: headers,
         timeout: 30000
       }
     );
@@ -113,23 +123,38 @@ export async function createTbankPayment(paymentData) {
     });
 
     // Проверяем ответ
+    // Согласно документации: https://developer.tbank.ru/eacq/api/init
     if (response.data.Success === false) {
-      throw new Error(response.data.Message || 'Ошибка создания платежа');
+      const errorMessage = response.data.Message || response.data.ErrorMessage || 'Ошибка создания платежа';
+      console.error('T-bank returned Success: false');
+      console.error('Error message:', errorMessage);
+      console.error('Error code:', response.data.ErrorCode);
+      throw new Error(errorMessage);
     }
 
     // PaymentURL может быть в разных полях в зависимости от API версии
-    const paymentUrl = response.data.PaymentURL || response.data.PaymentUrl || response.data.Url || response.data.url;
+    // Согласно документации, обычно это PaymentURL
+    const paymentUrl = response.data.PaymentURL || 
+                      response.data.PaymentUrl || 
+                      response.data.Url || 
+                      response.data.url ||
+                      response.data.PaymentLink;
     
     if (!paymentUrl) {
-      console.warn('PaymentURL не найден в ответе Т-банк. Полный ответ:', response.data);
+      console.error('❌ PaymentURL не найден в ответе Т-банк!');
+      console.error('Все поля ответа:', Object.keys(response.data));
+      console.error('Полный ответ:', JSON.stringify(response.data, null, 2));
+      throw new Error('PaymentURL не получен от Т-банк. Проверьте логи для деталей.');
     }
+
+    console.log('✅ PaymentURL получен:', paymentUrl);
 
     // PaymentURL - URL для редиректа на страницу оплаты
     return {
       success: true,
       paymentUrl: paymentUrl,
       orderId: response.data.OrderId || orderId,
-      paymentId: response.data.PaymentId,
+      paymentId: response.data.PaymentId || response.data.PaymentId,
       status: response.data.Status,
       data: response.data
     };
