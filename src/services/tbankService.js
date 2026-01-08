@@ -92,6 +92,24 @@ export async function createTbankPayment(paymentData) {
     ...(userPhone && { Phone: userPhone })
   };
 
+  // Добавляем чек (Receipt) для соответствия ФЗ-54 (если терминал требует фискализацию)
+  // Это обязательно для большинства боевых терминалов
+  params.Receipt = {
+    Email: userEmail || 'user@example.com', // Обязательно, если нет телефона
+    Taxation: 'usn_income', // Упрощенная система (доходы). Можно вынести в ENV если нужно другое (osn, usn_income_outcome, envd, esn, patent)
+    Items: [
+      {
+        Name: description || 'Пополнение баланса токенов',
+        Price: Math.round(amount * 100), // В копейках
+        Quantity: 1.00,
+        Amount: Math.round(amount * 100), // Сумма позиции в копейках
+        Tax: 'none', // Без НДС (или vat20, vat10, vat0)
+        PaymentMethod: 'full_prepayment', // Полная предоплата 
+        PaymentObject: 'service' // Услуга
+      }
+    ]
+  };
+
   // Генерируем Token (подпись) с использованием триммированного пароля
   params.Token = generateToken(params, password);
 
