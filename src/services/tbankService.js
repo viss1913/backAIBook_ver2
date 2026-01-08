@@ -224,8 +224,6 @@ export async function checkTbankPaymentStatus(paymentId) {
       `${TBANK_API_URL}/GetState`,
       params,
       {
-        params,
-      {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
