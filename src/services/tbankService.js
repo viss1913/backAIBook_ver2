@@ -79,9 +79,21 @@ export async function createTbankPayment(paymentData) {
   params.Token = generateToken(params);
 
   try {
+    // Формируем правильный URL (убираем дублирование пути)
+    // Если TBANK_API_URL уже содержит путь, не добавляем его снова
+    let apiUrl = TBANK_API_URL;
+    if (!apiUrl.endsWith('/v2/Init') && !apiUrl.endsWith('/v2/Init/')) {
+      // Убираем trailing slash если есть
+      apiUrl = apiUrl.replace(/\/$/, '');
+      apiUrl = `${apiUrl}/v2/Init`;
+    }
+    
     console.log('=== T-bank API Request ===');
-    console.log('URL:', `${TBANK_API_URL}/v2/Init`);
+    console.log('Base URL from env:', TBANK_API_URL);
+    console.log('Final URL:', apiUrl);
     console.log('TerminalKey:', TBANK_TERMINAL_KEY);
+    console.log('SuccessURL:', TBANK_SUCCESS_URL);
+    console.log('FailURL:', TBANK_FAILURE_URL);
     console.log('Params (без Token):', JSON.stringify({ ...params, Token: '[HIDDEN]' }, null, 2));
     
     // Согласно документации: https://developer.tbank.ru/eacq/api/init
@@ -99,7 +111,7 @@ export async function createTbankPayment(paymentData) {
     }
     
     const response = await axios.post(
-      `${TBANK_API_URL}/v2/Init`,
+      apiUrl,
       params,
       {
         headers: headers,
