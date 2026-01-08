@@ -122,3 +122,5 @@ Content-Type: application/json
 3. **PaymentId**: После создания платежа Т-банк возвращает `PaymentId`, который нужно сохранить для проверки статуса
 4. **Webhook**: Т-банк отправляет callback с параметрами в формате PascalCase (OrderId, PaymentId, Status и т.д.)
 
+
+

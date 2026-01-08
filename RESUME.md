@@ -93,3 +93,5 @@ GIGACHAT_SCOPE=GIGACHAT_API_PERS (опционально)
 
 
 
+
+

@@ -281,3 +281,5 @@ Access denied for user ''@'localhost'
 3. Настройте webhook URL на production сервере
 4. Протестируйте на production с реальными платежами
 
+
+

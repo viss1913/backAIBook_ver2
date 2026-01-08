@@ -1,0 +1,11 @@
+# Скопируйте эти переменные и добавьте в Railway → Variables
+
+TBANK_TERMINAL_KEY=1703150935625DEMO
+TBANK_PASSWORD=xcbixwo8gsjibu6u
+TBANK_API_URL=https://securepayments.tbank.ru/api/v1
+TBANK_SUCCESS_URL=https://backaibookver2-production.up.railway.app/api/payments/tbank/success
+TBANK_FAILURE_URL=https://backaibookver2-production.up.railway.app/api/payments/tbank/failure
+BASE_URL=https://backaibookver2-production.up.railway.app
+
+
+

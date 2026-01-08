@@ -68,3 +68,5 @@ console.log('SQL для копирования:');
 console.log('='.repeat(70);
 console.log(sqlCommands.join(';\n\n') + ';');
 
+
+

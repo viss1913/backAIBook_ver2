@@ -60,9 +60,9 @@ GEN_API_KEY=ваш_ключ (опционально)
 TBANK_TERMINAL_KEY=1703150935625DEMO
 TBANK_PASSWORD=xcbixwo8gsjibu6u
 TBANK_API_URL=https://securepayments.tbank.ru/api/v1
-TBANK_SUCCESS_URL=https://your-railway-app.up.railway.app/api/payments/tbank/success
-TBANK_FAILURE_URL=https://your-railway-app.up.railway.app/api/payments/tbank/failure
-BASE_URL=https://your-railway-app.up.railway.app
+TBANK_SUCCESS_URL=https://backaibookver2-production.up.railway.app/api/payments/tbank/success
+TBANK_FAILURE_URL=https://backaibookver2-production.up.railway.app/api/payments/tbank/failure
+BASE_URL=https://backaibookver2-production.up.railway.app
 
 # API ключи (уже должны быть)
 PERPLEXITY_API_KEY=ваш_ключ
@@ -81,12 +81,11 @@ GEMINI_API_KEY=ваш_ключ
 
 2. **Добавьте переменные окружения**:
    - Railway → ваш проект → Variables
-   - Добавьте все переменные из списка выше
-   - **ВАЖНО:** Замените `your-railway-app` на ваш реальный Railway URL
+   - Добавьте все переменные из списка выше (URLs уже настроены)
 
 3. **Настройте webhook в Т-банк**:
    - В личном кабинете Т-банка найдите раздел "Webhook" или "Callback URL"
-   - Укажите: `https://your-railway-app.up.railway.app/api/payments/tbank/callback`
+   - Укажите: `https://backaibookver2-production.up.railway.app/api/payments/tbank/callback`
    - Убедитесь, что URL доступен по HTTPS
 
 4. **Запушьте код в GitHub**:
@@ -102,21 +101,21 @@ GEMINI_API_KEY=ваш_ключ
 
 ### 1. Проверка health endpoint:
 ```bash
-curl https://your-railway-app.up.railway.app/health
+curl https://backaibookver2-production.up.railway.app/health
 ```
 
 Должен вернуть: `{"status":"ok"}`
 
 ### 2. Проверка тарифов:
 ```bash
-curl https://your-railway-app.up.railway.app/api/payments/pricing
+curl https://backaibookver2-production.up.railway.app/api/payments/pricing
 ```
 
 Должен вернуть список тарифов.
 
 ### 3. Проверка создания платежа:
 ```bash
-curl -X POST https://your-railway-app.up.railway.app/api/payments/create \
+curl -X POST https://backaibookver2-production.up.railway.app/api/payments/create \
   -H "Content-Type: application/json" \
   -d '{"deviceId":"test-123","tierId":"tier1"}'
 ```

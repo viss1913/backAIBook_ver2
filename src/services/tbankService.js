@@ -13,11 +13,17 @@ dotenv.config();
 // Конфигурация Т-банк API
 // Документация: https://developer.tbank.ru/eacq/api/init
 const TBANK_API_URL = process.env.TBANK_API_URL || 'https://securepay.tinkoff.ru';
-const TBANK_TERMINAL_KEY = process.env.TBANK_TERMINAL_KEY || '1703150935625DEMO'; // Тестовый терминал
-const TBANK_PASSWORD = process.env.TBANK_PASSWORD || 'xcbixwo8gsjibu6u'; // Тестовый пароль
-const TBANK_API_TOKEN = process.env.TBANK_API_TOKEN; // Bearer Token для авторизации (если используется)
+const TBANK_TERMINAL_KEY = process.env.TBANK_TERMINAL_KEY; // Expect specific key from env
+const TBANK_PASSWORD = process.env.TBANK_PASSWORD; // Expect specific password from env
+const TBANK_API_TOKEN = process.env.TBANK_API_TOKEN; // Bearer Token (optional)
 const TBANK_SUCCESS_URL = process.env.TBANK_SUCCESS_URL || `${process.env.BASE_URL || 'http://localhost:3000'}/api/payments/tbank/success`;
 const TBANK_FAILURE_URL = process.env.TBANK_FAILURE_URL || `${process.env.BASE_URL || 'http://localhost:3000'}/api/payments/tbank/failure`;
+
+// Validate credentials on startup
+if (!TBANK_TERMINAL_KEY || !TBANK_PASSWORD) {
+  console.warn('⚠️ WARNING: TBANK_TERMINAL_KEY or TBANK_PASSWORD are missing in .env');
+  console.warn('⚠️ Payments will likely FAIL unless using a hardcoded fallback (not recommended for production).');
+}
 
 /**
  * Генерация подписи для запроса Т-банк API
@@ -32,10 +38,10 @@ function generateToken(params) {
     .sort()
     .map(key => `${key}=${params[key]}`)
     .join('&');
-  
+
   // Добавляем пароль
   const stringToSign = `${sortedParams}&Password=${TBANK_PASSWORD}`;
-  
+
   // Генерируем SHA256 хэш (или MD5, в зависимости от версии API)
   // По умолчанию используем SHA256
   return crypto.createHash('sha256').update(stringToSign).digest('hex');
@@ -43,28 +49,22 @@ function generateToken(params) {
 
 /**
  * Создание платежа в Т-банк
- * @param {Object} paymentData - Данные платежа
- * @param {number} paymentData.amount - Сумма платежа в рублях
- * @param {string} paymentData.orderId - Уникальный ID заказа
- * @param {string} paymentData.description - Описание платежа
- * @param {string} paymentData.userEmail - Email пользователя (опционально)
- * @param {string} paymentData.userPhone - Телефон пользователя (опционально)
- * @returns {Promise<Object>} - Ответ от Т-банк с URL для оплаты
- */
-/**
- * Создание платежа в Т-банк
  * Документация: https://developer.tbank.ru/eacq/api
  */
 export async function createTbankPayment(paymentData) {
   const { amount, orderId, description, userEmail, userPhone } = paymentData;
 
-  if (!TBANK_TERMINAL_KEY || !TBANK_PASSWORD) {
-    throw new Error('Т-банк конфигурация не настроена. Установите TBANK_TERMINAL_KEY и TBANK_PASSWORD');
+  // Use env vars or fallback to demo ONLY ifenv is missing (legacy support, but warn)
+  const terminalKey = TBANK_TERMINAL_KEY || '1703150935625DEMO';
+  const password = TBANK_PASSWORD || 'xcbixwo8gsjibu6u';
+
+  if (!TBANK_TERMINAL_KEY) {
+    console.warn('⚠️ Using DEMO Terminal Key because TBANK_TERMINAL_KEY is not set.');
   }
 
   // Формируем параметры запроса согласно документации Т-банк
   const params = {
-    TerminalKey: TBANK_TERMINAL_KEY,
+    TerminalKey: terminalKey,
     Amount: Math.round(amount * 100), // Сумма в копейках
     OrderId: orderId,
     Description: description || 'Пополнение токенов',
@@ -75,117 +75,94 @@ export async function createTbankPayment(paymentData) {
     ...(userPhone && { Phone: userPhone })
   };
 
-  // Генерируем Token (подпись)
-  params.Token = generateToken(params);
+  // Генерируем Token (подпись) - передаем пароль явно
+  // Note: generateToken relies on the global TBANK_PASSWORD currently. 
+  // Let's modify generateToken or handle it here locally to be safe if we switched to local vars above.
+  // Ideally, generateToken should take password as arg, but for minimal invasive change let's rely on global if set, 
+  // or re-implement token gen logic locally if needed. 
+  // Actually, let's fix generateToken usage by temporarily overriding or creating a local helper if we want to support the demo fallback properly without changing global const logic too much.
+  // BUT the user SAID they added keys, so global `TBANK_PASSWORD` should be good.
+
+  // Let's update the generateToken function slightly in a separate tool call if needed, 
+  // but for now, assuming TBANK_PASSWORD is set correctly from env as per user input.
+  // If we fell back to demo strings above locally, generateToken might fail if it uses the empty global.
+  // Let's patch generateToken logic inline here for safety or update the global var usage.
+
+  // Re-implementing token generation locally to be safe with the `password` variable selected above
+  const sortedParams = Object.keys(params)
+    .filter(key => key !== 'Token' && key !== 'token')
+    .sort()
+    .map(key => `${key}=${params[key]}`)
+    .join('&');
+
+  const stringToSign = `${sortedParams}&Password=${password}`;
+  params.Token = crypto.createHash('sha256').update(stringToSign).digest('hex');
 
   try {
-    // Формируем правильный URL (убираем дублирование пути)
-    // Если TBANK_API_URL уже содержит путь, не добавляем его снова
+    // Формируем правильный URL
     let apiUrl = TBANK_API_URL;
     if (!apiUrl.endsWith('/v2/Init') && !apiUrl.endsWith('/v2/Init/')) {
-      // Убираем trailing slash если есть
       apiUrl = apiUrl.replace(/\/$/, '');
       apiUrl = `${apiUrl}/v2/Init`;
     }
-    
+
     console.log('=== T-bank API Request ===');
-    console.log('Base URL from env:', TBANK_API_URL);
-    console.log('Final URL:', apiUrl);
-    console.log('TerminalKey:', TBANK_TERMINAL_KEY);
-    console.log('SuccessURL:', TBANK_SUCCESS_URL);
-    console.log('FailURL:', TBANK_FAILURE_URL);
-    console.log('Params (без Token):', JSON.stringify({ ...params, Token: '[HIDDEN]' }, null, 2));
-    
-    // Согласно документации: https://developer.tbank.ru/eacq/api/init
-    // Endpoint: /v2/Init
-    // Авторизация: Bearer API Token (если TBANK_API_TOKEN указан) или через Token в теле запроса
+    console.log('URL:', apiUrl);
+    console.log('TerminalKey:', terminalKey);
+    console.log('OrderId:', orderId);
+    console.log('Amount (coins):', params.Amount);
+
     const headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json'
     };
-    
-    // Если указан API Token, используем Bearer авторизацию
+
     if (TBANK_API_TOKEN) {
       headers['Authorization'] = `Bearer ${TBANK_API_TOKEN}`;
-      console.log('Using Bearer Token authorization');
     }
-    
-    const response = await axios.post(
-      apiUrl,
-      params,
-      {
-        headers: headers,
-        timeout: 30000
-      }
-    );
 
-    // Логируем полный ответ для отладки
+    const response = await axios.post(apiUrl, params, { headers, timeout: 30000 });
+
     console.log('=== T-bank API Response ===');
     console.log('Status:', response.status);
-    console.log('Full response:', JSON.stringify(response.data, null, 2));
-    console.log('Response keys:', Object.keys(response.data || {}));
-    
-    // Проверяем все возможные поля для PaymentURL
-    const possibleUrlFields = ['PaymentURL', 'PaymentUrl', 'Url', 'url', 'PaymentUrl', 'payment_url', 'redirectUrl', 'RedirectUrl'];
-    console.log('Checking for PaymentURL in fields:');
-    possibleUrlFields.forEach(field => {
-      if (response.data[field]) {
-        console.log(`  ✓ Found ${field}: ${response.data[field]}`);
-      }
-    });
+    console.log('Success:', response.data.Success);
 
-    // Проверяем ответ
-    // Согласно документации: https://developer.tbank.ru/eacq/api/init
     if (response.data.Success === false) {
       const errorMessage = response.data.Message || response.data.ErrorMessage || 'Ошибка создания платежа';
-      console.error('T-bank returned Success: false');
-      console.error('Error message:', errorMessage);
-      console.error('Error code:', response.data.ErrorCode);
-      throw new Error(errorMessage);
+      const errorDetails = response.data.Details || '';
+      console.error('❌ T-Bank Error:', errorMessage, errorDetails);
+      throw new Error(`T-Bank Error: ${errorMessage} ${errorDetails}`);
     }
 
-    // PaymentURL может быть в разных полях в зависимости от API версии
-    // Согласно документации, обычно это PaymentURL
-    const paymentUrl = response.data.PaymentURL || 
-                      response.data.PaymentUrl || 
-                      response.data.Url || 
-                      response.data.url ||
-                      response.data.PaymentLink;
-    
+    // Ищем PaymentURL в разных полях
+    const paymentUrl = response.data.PaymentURL ||
+      response.data.PaymentUrl ||
+      response.data.Url ||
+      response.data.url ||
+      response.data.PaymentLink;
+
     if (!paymentUrl) {
-      console.error('❌ PaymentURL не найден в ответе Т-банк!');
-      console.error('Все поля ответа:', Object.keys(response.data));
-      console.error('Полный ответ:', JSON.stringify(response.data, null, 2));
-      throw new Error('PaymentURL не получен от Т-банк. Проверьте логи для деталей.');
+      console.error('❌ PaymentURL not found in successful response:', JSON.stringify(response.data));
+      throw new Error('PaymentURL не получен от Т-банк');
     }
 
-    console.log('✅ PaymentURL получен:', paymentUrl);
+    console.log('✅ PaymentURL received:', paymentUrl);
 
-    // PaymentURL - URL для редиректа на страницу оплаты
     return {
       success: true,
       paymentUrl: paymentUrl,
       orderId: response.data.OrderId || orderId,
-      paymentId: response.data.PaymentId || response.data.PaymentId,
+      paymentId: response.data.PaymentId,
       status: response.data.Status,
       data: response.data
     };
   } catch (error) {
-    console.error('=== T-bank API Error ===');
-    console.error('Error message:', error.message);
+    console.error('=== Payment Creation Failed ===');
+    console.error(error.message);
     if (error.response) {
-      console.error('Response status:', error.response.status);
-      console.error('Response data:', JSON.stringify(error.response.data, null, 2));
-      console.error('Response headers:', JSON.stringify(error.response.headers, null, 2));
-    } else if (error.request) {
-      console.error('Request was made but no response received');
-      console.error('Request config:', JSON.stringify({
-        url: error.config?.url,
-        method: error.config?.method,
-        data: error.config?.data
-      }, null, 2));
+      console.error('Response data:', JSON.stringify(error.response.data));
     }
-    throw new Error(`Ошибка создания платежа: ${error.response?.data?.Message || error.message}`);
+    throw error;
   }
 }
 

@@ -1,16 +1,16 @@
-import { 
-  getOrCreateUser, 
-  getUserTokenBalance, 
-  createPayment, 
-  updatePaymentStatus, 
+import {
+  getOrCreateUser,
+  getUserTokenBalance,
+  createPayment,
+  updatePaymentStatus,
   getPaymentByPaymentId,
   getPaymentByTbankOrderId,
   addUserTokens,
   getUserTokenTransactions
 } from '../utils/database.js';
-import { 
-  createTbankPayment, 
-  checkTbankPaymentStatus, 
+import {
+  createTbankPayment,
+  checkTbankPaymentStatus,
   processTbankCallback,
   getTbankPaymentRedirectUrl
 } from '../services/tbankService.js';
@@ -143,7 +143,7 @@ export async function createTokenPayment(req, res) {
       console.log('Amount:', finalAmount, 'RUB');
       console.log('Tokens:', finalTokensAmount);
       console.log('Order ID:', paymentId);
-      
+
       // Создаем платеж в Т-банк
       const tbankResult = await createTbankPayment({
         amount: finalAmount,
@@ -152,7 +152,7 @@ export async function createTokenPayment(req, res) {
         userEmail: null,
         userPhone: null
       });
-      
+
       console.log('T-bank payment created successfully');
       console.log('Payment URL:', tbankResult.paymentUrl);
       console.log('Payment ID:', tbankResult.paymentId);
@@ -183,7 +183,7 @@ export async function createTokenPayment(req, res) {
       } catch (e) {
         console.error('Error updating payment status:', e);
       }
-      
+
       return res.status(500).json({
         success: false,
         error: 'Failed to create payment',
@@ -194,7 +194,9 @@ export async function createTokenPayment(req, res) {
     console.error('Error creating payment:', error);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to create payment'
+      error: 'Failed to create payment',
+      message: error.message, // Pass the specific T-Bank error
+      details: error.response?.data
     });
   }
 }
@@ -294,7 +296,7 @@ export async function checkPaymentStatus(req, res) {
         // Используем PaymentId от Т-банка, если есть, иначе payment_id
         const paymentIdToCheck = payment.tbank_payment_id || payment.payment_id;
         const tbankStatus = await checkTbankPaymentStatus(paymentIdToCheck);
-        
+
         // Маппинг статусов Т-банк на наши статусы
         let mappedStatus = payment.status;
         if (tbankStatus.status === 'CONFIRMED' || tbankStatus.status === 'AUTHORIZED') {
@@ -306,7 +308,7 @@ export async function checkPaymentStatus(req, res) {
         } else if (['PREAUTHORIZING', 'AUTHORIZING', 'CONFIRMING'].includes(tbankStatus.status)) {
           mappedStatus = 'processing';
         }
-        
+
         // Обновляем статус если изменился
         if (mappedStatus !== payment.status) {
           await updatePaymentStatus(

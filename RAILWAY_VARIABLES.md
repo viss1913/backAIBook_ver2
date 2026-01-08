@@ -9,23 +9,16 @@
 ```
 TBANK_TERMINAL_KEY=1703150935625DEMO
 TBANK_PASSWORD=xcbixwo8gsjibu6u
-TBANK_API_URL=https://securepayments.tbank.ru/api/v1
+TBANK_API_URL=https://securepay.tinkoff.ru
 ```
 
-### 🔴 ОБЯЗАТЕЛЬНО (URLs - замените на ваш Railway URL):
+### 🔴 ОБЯЗАТЕЛЬНО (URLs):
 
 ```
-TBANK_SUCCESS_URL=https://your-railway-app.up.railway.app/api/payments/tbank/success
-TBANK_FAILURE_URL=https://your-railway-app.up.railway.app/api/payments/tbank/failure
-BASE_URL=https://your-railway-app.up.railway.app
+TBANK_SUCCESS_URL=https://backaibookver2-production.up.railway.app/api/payments/tbank/success
+TBANK_FAILURE_URL=https://backaibookver2-production.up.railway.app/api/payments/tbank/failure
+BASE_URL=https://backaibookver2-production.up.railway.app
 ```
-
-**⚠️ ВАЖНО:** Замените `your-railway-app` на ваш реальный Railway URL!
-
-**Как узнать ваш Railway URL:**
-1. Railway → ваш проект → Settings → Networking
-2. Скопируйте Public Domain (например: `backaibookver2-production.up.railway.app`)
-3. Используйте его в переменных выше
 
 ### ✅ Автоматически (MySQL от Railway):
 
@@ -82,13 +75,12 @@ https://your-railway-app.up.railway.app/api/payments/tbank/callback
 **Где настроить:**
 - Личный кабинет Т-банка → Интернет-эквайринг → Настройки → Webhook/Callback URL
 
-## 📌 Пример заполнения
-
-Если ваш Railway URL: `backaibookver2-production.up.railway.app`
-
-То переменные будут:
+## 📌 Готовые переменные для вашего проекта
 
 ```
+TBANK_TERMINAL_KEY=1703150935625DEMO
+TBANK_PASSWORD=xcbixwo8gsjibu6u
+TBANK_API_URL=https://securepay.tinkoff.ru
 TBANK_SUCCESS_URL=https://backaibookver2-production.up.railway.app/api/payments/tbank/success
 TBANK_FAILURE_URL=https://backaibookver2-production.up.railway.app/api/payments/tbank/failure
 BASE_URL=https://backaibookver2-production.up.railway.app
