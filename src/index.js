@@ -63,6 +63,26 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Временный endpoint для создания таблиц (удалить после использования!)
+app.post('/admin/init-db', async (req, res) => {
+  try {
+    console.log('Manual database initialization requested...');
+    await initDatabase();
+    res.json({ 
+      success: true, 
+      message: 'Database tables initialized successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Database initialization error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
 // API routes
 app.use('/api', imageRoutes);
 app.use('/api/books', bookRoutes);
