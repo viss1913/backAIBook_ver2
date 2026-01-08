@@ -208,11 +208,17 @@ export async function checkTbankPaymentStatus(paymentId) {
   console.log('PaymentID (input):', paymentId);
 
   // Conver to string to ensure consistency
+  // T-Bank PaymentId is usually a number, but can be string. 
+  // If we send it as string in JSON but T-Bank expects number, it might fail validation.
+  // Let's force it to be NUMBER if it looks like one.
   const paymentIdStr = String(paymentId);
+  const isNumeric = /^\d+$/.test(paymentIdStr);
+
+  const finalPaymentId = isNumeric ? parseInt(paymentIdStr, 10) : paymentIdStr;
 
   const params = {
     TerminalKey: envTerminalKey,
-    PaymentId: paymentIdStr
+    PaymentId: finalPaymentId
   };
 
   params.Token = generateToken(params, envPassword);

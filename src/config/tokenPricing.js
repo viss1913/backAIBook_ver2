@@ -28,6 +28,15 @@ export const TOKEN_PRICING = [
     label: '4000 токенов',
     description: 'Максимальный пакет',
     popular: false
+  },
+  {
+    id: 'tier_test',
+    tokens: 100,
+    price: 10.00,
+    pricePerToken: 0.10,
+    label: 'ТЕСТ (100 токенов)',
+    description: 'Для проверки оплаты',
+    popular: false
   }
 ];
 
