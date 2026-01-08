@@ -78,6 +78,11 @@ export async function createTbankPayment(paymentData) {
   params.Token = generateToken(params);
 
   try {
+    console.log('=== T-bank API Request ===');
+    console.log('URL:', `${TBANK_API_URL}/Init`);
+    console.log('TerminalKey:', TBANK_TERMINAL_KEY);
+    console.log('Params (без Token):', JSON.stringify({ ...params, Token: '[HIDDEN]' }, null, 2));
+    
     // Согласно документации Т-банк, используется POST запрос
     // Endpoint может быть: /Init (для инициализации платежа)
     const response = await axios.post(
@@ -93,7 +98,9 @@ export async function createTbankPayment(paymentData) {
     );
 
     // Логируем полный ответ для отладки
-    console.log('Т-банк API ответ:', JSON.stringify(response.data, null, 2));
+    console.log('=== T-bank API Response ===');
+    console.log('Status:', response.status);
+    console.log('Full response:', JSON.stringify(response.data, null, 2));
 
     // Проверяем ответ
     if (response.data.Success === false) {
@@ -117,7 +124,20 @@ export async function createTbankPayment(paymentData) {
       data: response.data
     };
   } catch (error) {
-    console.error('Т-банк API error:', error.response?.data || error.message);
+    console.error('=== T-bank API Error ===');
+    console.error('Error message:', error.message);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+      console.error('Response headers:', JSON.stringify(error.response.headers, null, 2));
+    } else if (error.request) {
+      console.error('Request was made but no response received');
+      console.error('Request config:', JSON.stringify({
+        url: error.config?.url,
+        method: error.config?.method,
+        data: error.config?.data
+      }, null, 2));
+    }
     throw new Error(`Ошибка создания платежа: ${error.response?.data?.Message || error.message}`);
   }
 }

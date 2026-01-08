@@ -139,6 +139,11 @@ export async function createTokenPayment(req, res) {
     );
 
     try {
+      console.log('=== Creating payment in T-bank ===');
+      console.log('Amount:', finalAmount, 'RUB');
+      console.log('Tokens:', finalTokensAmount);
+      console.log('Order ID:', paymentId);
+      
       // Создаем платеж в Т-банк
       const tbankResult = await createTbankPayment({
         amount: finalAmount,
@@ -147,6 +152,10 @@ export async function createTokenPayment(req, res) {
         userEmail: null,
         userPhone: null
       });
+      
+      console.log('T-bank payment created successfully');
+      console.log('Payment URL:', tbankResult.paymentUrl);
+      console.log('Payment ID:', tbankResult.paymentId);
 
       // Обновляем запись о платеже с order_id от Т-банка
       if (tbankResult.orderId) {
