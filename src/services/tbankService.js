@@ -92,15 +92,25 @@ export async function createTbankPayment(paymentData) {
       }
     );
 
+    // Логируем полный ответ для отладки
+    console.log('Т-банк API ответ:', JSON.stringify(response.data, null, 2));
+
     // Проверяем ответ
     if (response.data.Success === false) {
       throw new Error(response.data.Message || 'Ошибка создания платежа');
     }
 
+    // PaymentURL может быть в разных полях в зависимости от API версии
+    const paymentUrl = response.data.PaymentURL || response.data.PaymentUrl || response.data.Url || response.data.url;
+    
+    if (!paymentUrl) {
+      console.warn('PaymentURL не найден в ответе Т-банк. Полный ответ:', response.data);
+    }
+
     // PaymentURL - URL для редиректа на страницу оплаты
     return {
       success: true,
-      paymentUrl: response.data.PaymentURL,
+      paymentUrl: paymentUrl,
       orderId: response.data.OrderId || orderId,
       paymentId: response.data.PaymentId,
       status: response.data.Status,
