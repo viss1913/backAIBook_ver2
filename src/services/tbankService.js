@@ -196,16 +196,20 @@ export async function createTbankPayment(paymentData) {
  * Документация: https://developer.tbank.ru/eacq/api
  */
 export async function checkTbankPaymentStatus(paymentId) {
-  if (!TBANK_TERMINAL_KEY || !TBANK_PASSWORD) {
+  // Fix: TRIM credentials here as well to be safe
+  const envTerminalKey = TBANK_TERMINAL_KEY ? TBANK_TERMINAL_KEY.trim() : undefined;
+  const envPassword = TBANK_PASSWORD ? TBANK_PASSWORD.trim() : undefined;
+
+  if (!envTerminalKey || !envPassword) {
     throw new Error('Т-банк конфигурация не настроена');
   }
 
   const params = {
-    TerminalKey: TBANK_TERMINAL_KEY,
+    TerminalKey: envTerminalKey,
     PaymentId: paymentId
   };
 
-  params.Token = generateToken(params);
+  params.Token = generateToken(params, envPassword);
 
   try {
     const response = await axios.post(
