@@ -59,7 +59,14 @@ const generateImageSchema = Joi.object({
   style_key: Joi.string()
     .max(50)
     .allow(null, '')
-    .optional()
+    .optional(),
+
+  deviceId: Joi.string()
+    .required()
+    .messages({
+      'any.required': 'deviceId is required',
+      'string.empty': 'deviceId cannot be empty'
+    })
 });
 
 /**

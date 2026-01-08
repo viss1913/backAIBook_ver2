@@ -95,3 +95,12 @@ async function testGigaChatWithToken() {
 testGigaChatWithToken();
 
 
+
+
+
+
+
+
+
+
+

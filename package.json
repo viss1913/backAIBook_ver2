@@ -7,7 +7,13 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "node test-api.js"
+    "test": "node test-api.js",
+    "test:tokens": "node test-token-system.js",
+    "test:payment": "node test-payment-simple.js",
+    "test:payment:tier1": "node test-payment-simple.js tier1",
+    "test:payment:tier2": "node test-payment-simple.js tier2",
+    "test:payment:tier3": "node test-payment-simple.js tier3",
+    "test:status": "node test-check-status.js"
   },
   "keywords": [
     "book-reader",

@@ -1,8 +1,9 @@
 import { validateGenerateImageRequest, validateGetImagesFromPerplexityRequest } from '../validators/imageValidator.js';
 import { generateImageFromText, generateImageFromTextWithGetImg, generateImageFromTextWithGenApi, getImagesFromPerplexity, generatePromptWithPerplexity } from '../services/perplexityService.js';
-import { findBookByHash, saveBook, saveIllustration, getBookIllustrations, initDatabase } from '../utils/database.js';
+import { findBookByHash, saveBook, saveIllustration, getBookIllustrations, initDatabase, getUserTokenBalance } from '../utils/database.js';
 import { analyzeContentWithGemini, parseFB2 } from '../services/fb2Service.js';
 import { generateCoverPromptTemplate } from '../utils/promptTemplate.js';
+import { deductTokensAfterGeneration } from '../middleware/tokenMiddleware.js';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
@@ -98,11 +99,24 @@ export async function generateImage(req, res) {
       const inlineIll = illustrations.find(ill => ill.type === 'inline');
       if (inlineIll) {
         console.log('Found existing illustration in database:', inlineIll.image_url);
+        
+        // Если картинка из кэша, не списываем токены
+        // Но все равно возвращаем баланс для информации
+        let balance = null;
+        if (req.user && req.user.id) {
+          try {
+            balance = await getUserTokenBalance(req.user.id);
+          } catch (e) {
+            // Игнорируем ошибку
+          }
+        }
+        
         return res.status(200).json({
           success: true,
           imageUrl: inlineIll.image_url,
           promptUsed: inlineIll.prompt,
-          cached: true
+          cached: true,
+          tokensRemaining: balance
         });
       }
     } else {
@@ -162,11 +176,36 @@ export async function generateImage(req, res) {
     // Сохраняем в базу для кэширования
     await saveIllustration(existingBook.id, 'inline', result.imageUrl, result.promptUsed, appliedStyle.key);
 
+    // Списываем токены после успешной генерации
+    // req.user должен быть установлен middleware checkTokensMiddleware
+    if (req.user && req.user.id) {
+      try {
+        await deductTokensAfterGeneration(req.user.id, `Генерация изображения для "${bookTitle}"`);
+        const newBalance = await getUserTokenBalance(req.user.id);
+        console.log(`Tokens deducted. New balance: ${newBalance}`);
+      } catch (tokenError) {
+        console.error('Error deducting tokens:', tokenError);
+        // Не прерываем ответ, так как картинка уже сгенерирована
+        // Но логируем ошибку для мониторинга
+      }
+    }
+
+    // Получаем обновленный баланс для ответа
+    let newBalance = null;
+    if (req.user && req.user.id) {
+      try {
+        newBalance = await getUserTokenBalance(req.user.id);
+      } catch (e) {
+        // Игнорируем ошибку
+      }
+    }
+
     return res.status(200).json({
       success: true,
       imageUrl: result.imageUrl,
       promptUsed: result.promptUsed,
-      appliedStyleKey: appliedStyle.key
+      appliedStyleKey: appliedStyle.key,
+      tokensRemaining: newBalance
     });
 
   } catch (error) {

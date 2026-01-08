@@ -199,3 +199,12 @@ async function testGenerateAndSaveImage() {
 // Запускаем тест
 testGenerateAndSaveImage();
 
+
+
+
+
+
+
+
+
+

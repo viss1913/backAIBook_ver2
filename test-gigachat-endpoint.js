@@ -70,3 +70,12 @@ async function testGigaChatEndpoint() {
 testGigaChatEndpoint();
 
 
+
+
+
+
+
+
+
+
+

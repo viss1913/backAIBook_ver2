@@ -191,3 +191,12 @@ async function testGigaChatImageGeneration() {
 testGigaChatImageGeneration();
 
 
+
+
+
+
+
+
+
+
+

@@ -151,3 +151,12 @@ POST /api/generate-image?provider=genapi
 - Результат возвращается сразу
 
 
+
+
+
+
+
+
+
+
+

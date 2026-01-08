@@ -37,6 +37,32 @@ LAOZHANG_API_KEY=ваш_ключ_laozhang
 PERPLEXITY_API_KEY=ваш_ключ_perplexity
 ```
 
+### Для Т-банк эквайринга (система токенов):
+```
+TBANK_TERMINAL_KEY=1703150935625DEMO
+TBANK_PASSWORD=xcbixwo8gsjibu6u
+TBANK_API_URL=https://securepayments.tbank.ru/api/v1
+TBANK_SUCCESS_URL=https://your-railway-app.up.railway.app/api/payments/tbank/success
+TBANK_FAILURE_URL=https://your-railway-app.up.railway.app/api/payments/tbank/failure
+BASE_URL=https://your-railway-app.up.railway.app
+```
+
+**Важно:**
+- Замените `your-railway-app.up.railway.app` на ваш реальный Railway URL
+- Для production получите свои `TBANK_TERMINAL_KEY` и `TBANK_PASSWORD` в личном кабинете Т-банка
+- `TBANK_SUCCESS_URL` и `TBANK_FAILURE_URL` должны быть доступны извне (HTTPS)
+
+### Для базы данных MySQL (Railway автоматически создает):
+```
+MYSQL_HOST=your-mysql-host
+MYSQL_USER=root
+MYSQL_PASSWORD=your-password
+MYSQL_DATABASE=railway
+MYSQL_PORT=3306
+```
+
+Railway автоматически предоставляет эти переменные при подключении MySQL плагина.
+
 ## Доступные провайдеры
 
 - `gigachat` - GigaChat API (синхронный, рекомендуется)
@@ -56,5 +82,14 @@ PERPLEXITY_API_KEY=ваш_ключ_perplexity
 1. `GET /health` - должен вернуть `{"status":"ok"}`
 2. Логи на Railway - не должно быть ошибок о missing API keys
 3. Тестовый запрос на генерацию изображения
+
+
+
+
+
+
+
+
+
 
 

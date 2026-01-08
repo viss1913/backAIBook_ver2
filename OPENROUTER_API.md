@@ -250,8 +250,25 @@ try {
 
 ## Доступные модели
 
-- `google/gemini-2.5-flash` (быстрая, используется в проекте)
+### Google Gemini модели
+
+- **`google/gemini-2.0-flash-001`** ⭐ (используется в проекте)
+  - Быстрая модель для генерации промптов и анализа текста
+  - Поддерживает текстовые и визуальные входные данные
+  - Поддерживает функции (function calling)
+  - **Документация модели:** https://openrouter.ai/google/gemini-2.0-flash-001/api
+  - **Используется в:**
+    - `src/services/perplexityService.js` - генерация промптов для изображений
+    - `src/services/aiSearchService.js` - исправление поисковых запросов
+
+- **`google/gemini-2.0-flash-exp`** (экспериментальная версия)
+  - Используется в `src/services/fb2Service.js` для анализа текста книги
+
+- `google/gemini-2.5-flash` (более новая версия)
 - `google/gemini-pro-1.5` (более мощная)
+
+### Другие модели
+
 - `openai/gpt-4o`
 - `anthropic/claude-3.5-sonnet`
 - И другие - см. https://openrouter.ai/models
@@ -267,6 +284,48 @@ try {
 4. **История диалога** передается через массив `messages` в хронологическом порядке
 
 ## Полный пример из проекта
+
+### Пример с google/gemini-2.0-flash-001 (используется в проекте)
+
+```javascript
+// Файл: src/services/perplexityService.js
+const axios = require('axios');
+
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENROUTER_API_KEY = process.env.GEMINI_API_KEY; // OpenRouter ключ
+const MODEL = 'google/gemini-2.0-flash-001';
+
+async function generatePromptForImage(bookTitle, author, textChunk) {
+  const systemPrompt = 'You are an expert at creating detailed, artistic prompts for AI image generators.';
+  const userPrompt = `Create a prompt for: ${bookTitle} by ${author}. Text: ${textChunk}`;
+
+  const response = await axios.post(
+    OPENROUTER_API_URL,
+    {
+      model: MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 800
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://github.com/viss1913/backAIBook_ver2',
+        'X-Title': 'AI Book Reader Backend'
+      },
+      timeout: 30000
+    }
+  );
+
+  return response.data.choices[0].message.content;
+}
+```
+
+### Пример с google/gemini-2.5-flash
 
 ```javascript
 // Файл: ai.js
@@ -348,7 +407,9 @@ async function generateImage(prompt) {
 
 ## Полезные ссылки
 
-- Документация OpenRouter: https://openrouter.ai/docs
-- Список моделей: https://openrouter.ai/models
-- Получение API ключа: https://openrouter.ai/keys
+- **Документация OpenRouter:** https://openrouter.ai/docs
+- **Список всех моделей:** https://openrouter.ai/models
+- **Получение API ключа:** https://openrouter.ai/keys
+- **Документация Gemini 2.0 Flash 001:** https://openrouter.ai/google/gemini-2.0-flash-001/api
+- **Официальная документация Google Gemini:** https://ai.google.dev/gemini-api/docs/models/gemini-v2
 

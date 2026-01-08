@@ -84,3 +84,12 @@ GIGACHAT_SCOPE=GIGACHAT_API_PERS (опционально)
 2. Отправить запрос с фронтенда на `/api/generate-image?provider=gigachat`
 
 
+
+
+
+
+
+
+
+
+

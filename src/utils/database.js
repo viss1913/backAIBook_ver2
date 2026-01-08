@@ -105,6 +105,55 @@ export async function initDatabase() {
       )
     `);
 
+    // Таблица токенов пользователей
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS user_tokens (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        balance INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE KEY unique_user (user_id)
+      )
+    `);
+
+    // Таблица транзакций токенов (история операций)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS token_transactions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        amount INT NOT NULL,
+        type ENUM('spend', 'earn', 'bonus', 'purchase') NOT NULL,
+        description TEXT,
+        related_payment_id INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (related_payment_id) REFERENCES payments(id) ON DELETE SET NULL
+      )
+    `);
+
+    // Таблица платежей (для Т-банк эквайринга)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        amount DECIMAL(10, 2) NOT NULL,
+        tokens_amount INT NOT NULL,
+        payment_id VARCHAR(255) UNIQUE,
+        status ENUM('pending', 'processing', 'completed', 'failed', 'cancelled') DEFAULT 'pending',
+        tbank_order_id VARCHAR(255),
+        tbank_payment_id VARCHAR(255),
+        callback_data TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        INDEX idx_payment_id (payment_id),
+        INDEX idx_tbank_order_id (tbank_order_id),
+        INDEX idx_status (status)
+      )
+    `);
+
     console.log('Database tables initialized successfully');
   } catch (error) {
     console.error('Error initializing database:', error);
@@ -248,6 +297,180 @@ export async function getChatContext(chatId, limit = 20) {
 export async function getMessageCount(chatId) {
   const [rows] = await pool.query('SELECT COUNT(*) as count FROM chat_messages WHERE chat_id = ?', [chatId]);
   return rows[0].count;
+}
+
+/**
+ * Управление токенами пользователей
+ */
+
+/**
+ * Получить или создать баланс токенов для пользователя
+ * Новым пользователям начисляется 300 токенов
+ */
+export async function getOrCreateUserTokens(userId) {
+  const [rows] = await pool.query('SELECT * FROM user_tokens WHERE user_id = ?', [userId]);
+  
+  if (rows[0]) {
+    return rows[0];
+  }
+
+  // Создаем запись с начальным балансом 300 токенов
+  const [result] = await pool.query(
+    'INSERT INTO user_tokens (user_id, balance) VALUES (?, ?)',
+    [userId, 300]
+  );
+
+  // Записываем транзакцию о бонусных токенах
+  await pool.query(
+    'INSERT INTO token_transactions (user_id, amount, type, description) VALUES (?, ?, ?, ?)',
+    [userId, 300, 'bonus', 'Начальный бонус для нового пользователя']
+  );
+
+  return { id: result.insertId, user_id: userId, balance: 300 };
+}
+
+/**
+ * Получить баланс токенов пользователя
+ */
+export async function getUserTokenBalance(userId) {
+  const tokens = await getOrCreateUserTokens(userId);
+  return tokens.balance;
+}
+
+/**
+ * Списать токены у пользователя
+ * @param {number} userId - ID пользователя
+ * @param {number} amount - Количество токенов для списания
+ * @param {string} description - Описание операции
+ * @returns {boolean} - true если списание успешно, false если недостаточно токенов
+ */
+export async function spendUserTokens(userId, amount, description = 'Списание токенов') {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Получаем текущий баланс
+    const tokens = await getOrCreateUserTokens(userId);
+    
+    if (tokens.balance < amount) {
+      await connection.rollback();
+      return false;
+    }
+
+    // Списываем токены
+    await connection.query(
+      'UPDATE user_tokens SET balance = balance - ? WHERE user_id = ?',
+      [amount, userId]
+    );
+
+    // Записываем транзакцию
+    await connection.query(
+      'INSERT INTO token_transactions (user_id, amount, type, description) VALUES (?, ?, ?, ?)',
+      [userId, -amount, 'spend', description]
+    );
+
+    await connection.commit();
+    return true;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+/**
+ * Пополнить баланс токенов пользователя
+ * @param {number} userId - ID пользователя
+ * @param {number} amount - Количество токенов для пополнения
+ * @param {string} description - Описание операции
+ * @param {number} paymentId - ID платежа (опционально)
+ */
+export async function addUserTokens(userId, amount, description = 'Пополнение токенов', paymentId = null) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Убеждаемся что запись существует
+    await getOrCreateUserTokens(userId);
+
+    // Пополняем баланс
+    await connection.query(
+      'UPDATE user_tokens SET balance = balance + ? WHERE user_id = ?',
+      [amount, userId]
+    );
+
+    // Записываем транзакцию
+    await connection.query(
+      'INSERT INTO token_transactions (user_id, amount, type, description, related_payment_id) VALUES (?, ?, ?, ?, ?)',
+      [userId, amount, 'purchase', description, paymentId]
+    );
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+/**
+ * Управление платежами
+ */
+
+/**
+ * Создать новый платеж
+ */
+export async function createPayment(userId, amount, tokensAmount, paymentId, tbankOrderId = null) {
+  const [result] = await pool.query(
+    `INSERT INTO payments (user_id, amount, tokens_amount, payment_id, tbank_order_id, status) 
+     VALUES (?, ?, ?, ?, ?, 'pending')`,
+    [userId, amount, tokensAmount, paymentId, tbankOrderId]
+  );
+  return result.insertId;
+}
+
+/**
+ * Обновить статус платежа
+ */
+export async function updatePaymentStatus(paymentId, status, tbankPaymentId = null, callbackData = null) {
+  await pool.query(
+    `UPDATE payments 
+     SET status = ?, tbank_payment_id = ?, callback_data = ?, updated_at = CURRENT_TIMESTAMP 
+     WHERE payment_id = ?`,
+    [status, tbankPaymentId, callbackData, paymentId]
+  );
+}
+
+/**
+ * Получить платеж по payment_id
+ */
+export async function getPaymentByPaymentId(paymentId) {
+  const [rows] = await pool.query('SELECT * FROM payments WHERE payment_id = ?', [paymentId]);
+  return rows[0];
+}
+
+/**
+ * Получить платеж по tbank_order_id
+ */
+export async function getPaymentByTbankOrderId(tbankOrderId) {
+  const [rows] = await pool.query('SELECT * FROM payments WHERE tbank_order_id = ?', [tbankOrderId]);
+  return rows[0];
+}
+
+/**
+ * Получить историю транзакций пользователя
+ */
+export async function getUserTokenTransactions(userId, limit = 50) {
+  const [rows] = await pool.query(
+    `SELECT * FROM token_transactions 
+     WHERE user_id = ? 
+     ORDER BY created_at DESC 
+     LIMIT ?`,
+    [userId, limit]
+  );
+  return rows;
 }
 
 export default pool;
