@@ -204,17 +204,27 @@ export async function checkTbankPaymentStatus(paymentId) {
     throw new Error('Т-банк конфигурация не настроена');
   }
 
+  console.log('--- Checking T-Bank Status ---');
+  console.log('PaymentID (input):', paymentId);
+
+  // Conver to string to ensure consistency
+  const paymentIdStr = String(paymentId);
+
   const params = {
     TerminalKey: envTerminalKey,
-    PaymentId: paymentId
+    PaymentId: paymentIdStr
   };
 
   params.Token = generateToken(params, envPassword);
+
+  console.log('Params to GetState:', JSON.stringify(params));
 
   try {
     const response = await axios.post(
       `${TBANK_API_URL}/GetState`,
       params,
+      {
+        params,
       {
         headers: {
           'Content-Type': 'application/json',
