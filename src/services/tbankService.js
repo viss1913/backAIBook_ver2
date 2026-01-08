@@ -101,6 +101,16 @@ export async function createTbankPayment(paymentData) {
     console.log('=== T-bank API Response ===');
     console.log('Status:', response.status);
     console.log('Full response:', JSON.stringify(response.data, null, 2));
+    console.log('Response keys:', Object.keys(response.data || {}));
+    
+    // Проверяем все возможные поля для PaymentURL
+    const possibleUrlFields = ['PaymentURL', 'PaymentUrl', 'Url', 'url', 'PaymentUrl', 'payment_url', 'redirectUrl', 'RedirectUrl'];
+    console.log('Checking for PaymentURL in fields:');
+    possibleUrlFields.forEach(field => {
+      if (response.data[field]) {
+        console.log(`  ✓ Found ${field}: ${response.data[field]}`);
+      }
+    });
 
     // Проверяем ответ
     if (response.data.Success === false) {
