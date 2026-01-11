@@ -1,5 +1,6 @@
 import { validateGenerateImageRequest, validateGetImagesFromPerplexityRequest } from '../validators/imageValidator.js';
 import { generateImageFromText, generateImageFromTextWithGetImg, generateImageFromTextWithGenApi, getImagesFromPerplexity, generatePromptWithPerplexity } from '../services/perplexityService.js';
+import { generateImageWithSiliconFlow } from '../services/siliconFlowService.js';
 import { findBookByHash, saveBook, saveIllustration, getBookIllustrations, initDatabase, getUserTokenBalance } from '../utils/database.js';
 import { analyzeContentWithGemini, parseFB2 } from '../services/fb2Service.js';
 import { generateCoverPromptTemplate } from '../utils/promptTemplate.js';
