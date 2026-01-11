@@ -23,7 +23,7 @@ export async function generateImageWithSiliconFlow(apiKey, prompt, model = 'blac
             // seed: Math.floor(Math.random() * 9999999999) // Optional for random variation
         }, {
             headers: {
-                'Authorization': `Bearer ${apiKey}`,
+                'Authorization': `Bearer ${apiKey.trim()}`,
                 'Content-Type': 'application/json'
             },
             timeout: 120000 // 2 minutes timeout (Pro models can be slow)
