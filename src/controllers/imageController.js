@@ -99,7 +99,7 @@ export async function generateImage(req, res) {
       const inlineIll = illustrations.find(ill => ill.type === 'inline');
       if (inlineIll) {
         console.log('Found existing illustration in database:', inlineIll.image_url);
-        
+
         // Если картинка из кэша, не списываем токены
         // Но все равно возвращаем баланс для информации
         let balance = null;
@@ -110,7 +110,7 @@ export async function generateImage(req, res) {
             // Игнорируем ошибку
           }
         }
-        
+
         return res.status(200).json({
           success: true,
           imageUrl: inlineIll.image_url,
@@ -129,12 +129,12 @@ export async function generateImage(req, res) {
     const promptApiKey = process.env.PERPLEXITY_API_KEY;
 
     // Определяем провайдера из query параметра
-    let provider = req.query.provider || 'laozhang';
+    let provider = req.query.provider || 'siliconflow';
 
-    // Hard check: forbid obsolete providers
-    if (provider === 'gigachat' || provider === 'gemini') {
-      console.warn(`⚠️  Obsolete provider requested: ${provider}. Falling back to 'laozhang'.`);
-      provider = 'laozhang';
+    // Hard check: forbid obsolete providers, including 'genapi' to force new models
+    if (provider === 'gigachat' || provider === 'gemini' || provider === 'genapi') {
+      console.warn(`⚠️  Obsolete provider requested: ${provider}. Falling back to 'siliconflow'.`);
+      provider = 'siliconflow';
     }
 
     console.log('Using provider:', provider);
@@ -165,6 +165,45 @@ export async function generateImage(req, res) {
       if (req.query.height) options.height = parseInt(req.query.height);
 
       result = await generateImageFromTextWithGenApi(promptApiKey, genApiKey, bookTitle, author, textChunk, options, prevSceneDescription || null, audience || 'adults', styleSuffix);
+    } else if (provider === 'siliconflow') {
+      const siliconApiKey = process.env.SILICONFLOW_API_KEY;
+
+      // Логика выбора режима (mode)
+      const mode = req.query.mode || 'turbo'; // turbo (Pro) | base (Schnell)
+      let imageModel = 'black-forest-labs/FLUX-1.1-pro';
+      let size = '512x512';
+
+      if (req.query.model) {
+        imageModel = req.query.model;
+        size = req.query.size || '512x512';
+      } else {
+        switch (mode) {
+          case 'base':
+          case 'economy': // Alias
+            imageModel = 'black-forest-labs/FLUX.1-schnell';
+            size = '1024x1024';
+            break;
+          case 'turbo':
+          case 'fast': // Alias
+          default:
+            imageModel = 'black-forest-labs/FLUX-1.1-pro';
+            size = '512x512';
+            break;
+        }
+      }
+
+      const imagePrompt = await generatePromptWithPerplexity(promptApiKey, bookTitle, author, textChunk, prevSceneDescription, audience || 'adults', styleSuffix);
+      const finalPrompt = `${styleSuffix ? styleSuffix + '. ' : ''}${imagePrompt.trim()}`;
+
+      console.log(`[SiliconFlow] Mode: ${mode}, Model: ${imageModel}, Size: ${size}`);
+
+      const sfResult = await generateImageWithSiliconFlow(siliconApiKey, finalPrompt, imageModel, size);
+
+      result = {
+        imageUrl: sfResult.imageUrl,
+        promptUsed: finalPrompt
+      };
+
     } else {
       const laoZhangApiKey = process.env.LAOZHANG_API_KEY || process.env.LAOZHAN_API_KEY;
       const imageModel = req.query.model || 'flux-kontext-pro';
@@ -177,16 +216,14 @@ export async function generateImage(req, res) {
     await saveIllustration(existingBook.id, 'inline', result.imageUrl, result.promptUsed, appliedStyle.key);
 
     // Списываем токены после успешной генерации
-    // req.user должен быть установлен middleware checkTokensMiddleware
     if (req.user && req.user.id) {
       try {
-        await deductTokensAfterGeneration(req.user.id, `Генерация изображения для "${bookTitle}"`);
+        const costToDeduct = req.imageCost || 25; // Берём из middleware или дефолт 25 (безопасно)
+        await deductTokensAfterGeneration(req.user.id, `Генерация изображения для "${bookTitle}"`, costToDeduct);
         const newBalance = await getUserTokenBalance(req.user.id);
-        console.log(`Tokens deducted. New balance: ${newBalance}`);
+        console.log(`Tokens deducted: ${costToDeduct}. New balance: ${newBalance}`);
       } catch (tokenError) {
         console.error('Error deducting tokens:', tokenError);
-        // Не прерываем ответ, так как картинка уже сгенерирована
-        // Но логируем ошибку для мониторинга
       }
     }
 

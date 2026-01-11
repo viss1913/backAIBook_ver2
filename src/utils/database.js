@@ -110,13 +110,21 @@ export async function initDatabase() {
       CREATE TABLE IF NOT EXISTS user_tokens (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
-        balance INT DEFAULT 0,
+        balance DECIMAL(10, 2) DEFAULT 0.00,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         UNIQUE KEY unique_user (user_id)
       )
     `);
+
+    // МИГРАЦИЯ: Обновляем тип колонки balance если она была INT
+    try {
+      await connection.query("ALTER TABLE user_tokens MODIFY COLUMN balance DECIMAL(10, 2) DEFAULT 0.00");
+    } catch (e) {
+      // Игнорируем ошибку если колонка уже обновлена или БД не поддерживает (редко)
+      console.log('Migration note: user_tokens.balance modify check');
+    }
 
     // Таблица платежей (для Т-банк эквайринга) - создаем ПЕРЕД token_transactions
     await connection.query(`
@@ -144,7 +152,7 @@ export async function initDatabase() {
       CREATE TABLE IF NOT EXISTS token_transactions (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
-        amount INT NOT NULL,
+        amount DECIMAL(10, 2) NOT NULL,
         type ENUM('spend', 'earn', 'bonus', 'purchase') NOT NULL,
         description TEXT,
         related_payment_id INT NULL,
@@ -153,6 +161,13 @@ export async function initDatabase() {
         FOREIGN KEY (related_payment_id) REFERENCES payments(id) ON DELETE SET NULL
       )
     `);
+
+    // МИГРАЦИЯ: Обновляем тип колонки amount
+    try {
+      await connection.query("ALTER TABLE token_transactions MODIFY COLUMN amount DECIMAL(10, 2) NOT NULL");
+    } catch (e) {
+      console.log('Migration note: token_transactions.amount modify check');
+    }
 
     console.log('Database tables initialized successfully');
   } catch (error) {
@@ -309,7 +324,7 @@ export async function getMessageCount(chatId) {
  */
 export async function getOrCreateUserTokens(userId) {
   const [rows] = await pool.query('SELECT * FROM user_tokens WHERE user_id = ?', [userId]);
-  
+
   if (rows[0]) {
     return rows[0];
   }
@@ -351,7 +366,7 @@ export async function spendUserTokens(userId, amount, description = 'Списа�
 
     // Получаем текущий баланс
     const tokens = await getOrCreateUserTokens(userId);
-    
+
     if (tokens.balance < amount) {
       await connection.rollback();
       return false;

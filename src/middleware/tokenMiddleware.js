@@ -17,12 +17,19 @@ export async function checkTokensMiddleware(req, res, next) {
 
     // Получаем или создаем пользователя
     const user = await getOrCreateUser(deviceId, null);
-    
+
     // Получаем баланс токенов (для новых пользователей будет 300)
     const balance = await getUserTokenBalance(user.id);
 
-    // Стоимость генерации одной картинки
-    const IMAGE_COST = 10;
+    // Определяем стоимость в зависимости от режима (mode)
+    const mode = req.query.mode || 'turbo'; // Default to turbo/fast
+    let IMAGE_COST = 25; // Default (Pro)
+
+    if (mode === 'base' || mode === 'economy') {
+      IMAGE_COST = 5; // Schnell
+    } else {
+      IMAGE_COST = 25; // Pro
+    }
 
     if (balance < IMAGE_COST) {
       return res.status(402).json({
@@ -53,15 +60,14 @@ export async function checkTokensMiddleware(req, res, next) {
  * Middleware для списания токенов после успешной генерации
  * Используется в контроллере после успешной генерации
  */
-export async function deductTokensAfterGeneration(userId, description = 'Генерация изображения') {
-  const IMAGE_COST = 10;
-  const success = await spendUserTokens(userId, IMAGE_COST, description);
-  
+export async function deductTokensAfterGeneration(userId, description = 'Генерация изображения', amount = 25) {
+  const success = await spendUserTokens(userId, amount, description);
+
   if (!success) {
     console.error(`Failed to deduct tokens for user ${userId}`);
     throw new Error('Failed to deduct tokens');
   }
-  
+
   return true;
 }
 

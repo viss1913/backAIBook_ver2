@@ -24,6 +24,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "adm-zip": "^0.5.16",
     "axios": "^1.13.2",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
